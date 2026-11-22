@@ -24,7 +24,10 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       if (!origin) {
         return callback(null, true);
       }
@@ -34,7 +37,7 @@ async function bootstrap() {
       ) {
         return callback(null, true);
       }
-      return callback(null, allowedOrigins[0] ?? false);
+      return callback(null, false);
     },
     credentials: true,
   });
