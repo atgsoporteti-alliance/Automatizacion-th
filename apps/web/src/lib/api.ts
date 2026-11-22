@@ -311,7 +311,15 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      throw new Error(`Error subiendo archivo (${response.status})`);
+      let msg = `Error subiendo archivo (${response.status})`;
+      try {
+        const parsed = (await response.json()) as { message?: string | string[] };
+        if (Array.isArray(parsed.message)) msg = parsed.message.join(', ');
+        else if (parsed.message) msg = parsed.message;
+      } catch {
+        // ignore json parse error
+      }
+      throw new Error(msg);
     }
     return response.json();
   },

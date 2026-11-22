@@ -192,21 +192,29 @@ export class PreOnboardingService {
     nationalId?: string;
   }) {
     const folder = `employees/${params.nationalId?.trim() || 'pending'}/${params.documentType.toLowerCase()}`;
-    const uploaded = await this.storageService.uploadObject({
-      folder,
-      fileName: params.file.originalname,
-      contentType: params.file.mimetype || 'application/pdf',
-      body: params.file.buffer,
-    });
+    try {
+      const uploaded = await this.storageService.uploadObject({
+        folder,
+        fileName: params.file.originalname,
+        contentType: params.file.mimetype || 'application/pdf',
+        body: params.file.buffer,
+      });
 
-    return {
-      documentType: params.documentType,
-      fileName: params.file.originalname,
-      mimeType: uploaded.mimeType,
-      fileSize: uploaded.fileSize,
-      s3Key: uploaded.s3Key,
-      s3Url: uploaded.publicUrl,
-    };
+      return {
+        documentType: params.documentType,
+        fileName: params.file.originalname,
+        mimeType: uploaded.mimeType,
+        fileSize: uploaded.fileSize,
+        s3Key: uploaded.s3Key,
+        s3Url: uploaded.publicUrl,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error subiendo archivo a S3: ${msg}`);
+      throw new BadRequestException(
+        `No se pudo guardar el archivo en Storage S3 (${msg}). Verifica las variables S3_ENDPOINT, S3_BUCKET y credenciales.`,
+      );
+    }
   }
 
   async submitPreOnboarding(
