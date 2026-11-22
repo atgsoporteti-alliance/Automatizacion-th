@@ -201,11 +201,26 @@ export default function ThDashboardPage() {
     },
   });
 
+  const normalizePortalLink = (rawUrl: string) => {
+    if (typeof window === 'undefined') return rawUrl;
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.hostname.endsWith('.netlify.app') || parsed.origin !== window.location.origin) {
+        return `${window.location.origin}${parsed.pathname}${parsed.search}`;
+      }
+    } catch {
+      if (rawUrl.startsWith('/')) {
+        return `${window.location.origin}${rawUrl}`;
+      }
+    }
+    return rawUrl;
+  };
+
   const returnCandidateMutation = useMutation({
     mutationFn: (vars: { workflowId: string; reason: string }) =>
       apiClient.returnToCandidate(vars.workflowId, vars.reason),
     onSuccess: (res) => {
-      setReturnedLink(res.correctionMagicLink);
+      setReturnedLink(normalizePortalLink(res.correctionMagicLink));
       setCopiedReturnLink(false);
       setReturnReason('');
       setReturnOpen(true);
@@ -220,7 +235,10 @@ export default function ThDashboardPage() {
   const magicLinkMutation = useMutation({
     mutationFn: () => apiClient.generateMagicLink(),
     onSuccess: (res) => {
-      setGeneratedLink({ magicLink: res.magicLink, expiresIn: res.expiresIn });
+      setGeneratedLink({
+        magicLink: normalizePortalLink(res.magicLink),
+        expiresIn: res.expiresIn,
+      });
       setCopiedLink(false);
     },
   });

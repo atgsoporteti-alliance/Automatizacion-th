@@ -40,8 +40,11 @@ export class PreOnboardingController {
   @ApiBearerAuth()
   @Roles('TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({ summary: 'Generar Magic Link temporal (JWT) para el candidato' })
-  generateMagicLink(@Body() dto: GenerateMagicLinkDto) {
-    return this.preOnboardingService.generateMagicLink(dto);
+  generateMagicLink(
+    @Body() dto: GenerateMagicLinkDto,
+    @Headers('origin') origin?: string,
+  ) {
+    return this.preOnboardingService.generateMagicLink(dto, origin);
   }
 
   @Get('verify/:token')

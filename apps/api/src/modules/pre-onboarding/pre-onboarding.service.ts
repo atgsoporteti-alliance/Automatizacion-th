@@ -24,6 +24,7 @@ import {
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { StorageService } from '../../common/storage/storage.service';
+import { resolveFrontendOrigin } from '../../common/utils/web-url.util';
 import { EmployeesService } from '../employees/employees.service';
 import {
   GenerateMagicLinkDto,
@@ -53,7 +54,7 @@ export class PreOnboardingService {
     private readonly employeesService: EmployeesService,
   ) { }
 
-  async generateMagicLink(dto: GenerateMagicLinkDto) {
+  async generateMagicLink(dto: GenerateMagicLinkDto, requestOrigin?: string) {
     const inviteId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const token = await this.jwtService.signAsync(
       {
@@ -68,13 +69,11 @@ export class PreOnboardingService {
       },
     );
 
-    const rawWebUrl = this.config.get<string>('WEB_URL', 'http://localhost:3000').split(',')[0].trim();
-    let webUrl = 'http://localhost:3000';
-    try {
-      webUrl = new URL(rawWebUrl).origin;
-    } catch {
-      webUrl = rawWebUrl.replace(/\/+$/, '');
-    }
+    const webUrl = resolveFrontendOrigin({
+      configuredWebUrl: this.config.get<string>('WEB_URL'),
+      requestOrigin,
+      nodeEnv: this.config.get<string>('NODE_ENV', 'development'),
+    });
     const magicLink = `${webUrl}/pre-ingreso/${token}`;
 
     this.logger.log(`🔗 Magic Link generado (${dto.candidateEmail ?? inviteId}): ${magicLink}`);

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { AuthenticatedUserProfile, ROLE_HOME_ROUTES } from '@alliance-hcm/shared';
 import { apiClient, DEV_ROLE_COOKIE } from './api';
 import { createSupabaseBrowserClient } from './supabase/client';
@@ -28,8 +28,11 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<AuthenticatedUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const isPublicCandidateRoute = pathname?.startsWith('/pre-ingreso') ?? false;
 
   const refreshUser = useCallback(async () => {
     try {
@@ -45,6 +48,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (isPublicCandidateRoute) {
+      setLoading(false);
+      return;
+    }
+
     void refreshUser();
 
     const supabase = createSupabaseBrowserClient();
@@ -57,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.subscription.unsubscribe();
     };
-  }, [refreshUser]);
+  }, [isPublicCandidateRoute, refreshUser]);
 
   const loginWithDevProfile = async (email: string) => {
     document.cookie = `${DEV_ROLE_COOKIE}=${encodeURIComponent(email)}; path=/; max-age=86400; SameSite=Lax`;

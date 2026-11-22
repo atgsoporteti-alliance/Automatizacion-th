@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
   AuthenticatedUserProfile,
@@ -94,7 +94,8 @@ export class WorkflowsController {
     @Param('id') id: string,
     @Body() dto: ReturnToCandidateDto,
     @CurrentUser() user: AuthenticatedUserProfile,
+    @Headers('origin') origin?: string,
   ) {
-    return this.workflowsService.returnToCandidate(id, dto, user.id);
+    return this.workflowsService.returnToCandidate(id, dto, user.id, origin);
   }
 }

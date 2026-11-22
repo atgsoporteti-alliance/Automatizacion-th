@@ -19,6 +19,7 @@ import {
 } from '@alliance-hcm/shared';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
+import { resolveFrontendOrigin } from '../../common/utils/web-url.util';
 import { RuleEngineService } from '../rules/rule-engine.service';
 import { HelpdeskService } from '../helpdesk/helpdesk.service';
 import {
@@ -345,6 +346,7 @@ export class WorkflowsService {
     workflowId: string,
     dto: ReturnToCandidateDto,
     actorId = 'th-analyst',
+    requestOrigin?: string,
   ) {
     const workflow = await this.database.db.query.onboardingOffboardingWorkflows.findFirst({
       where: eq(onboardingOffboardingWorkflows.id, workflowId),
@@ -386,18 +388,11 @@ export class WorkflowsService {
         )
       : '';
 
-    const rawWebUrl = (
-      this.config?.get<string>('WEB_URL', 'http://localhost:3000') ?? 'http://localhost:3000'
-    )
-      .split(',')[0]
-      .trim();
-
-    let webUrl = 'http://localhost:3000';
-    try {
-      webUrl = new URL(rawWebUrl).origin;
-    } catch {
-      webUrl = rawWebUrl.replace(/\/+$/, '');
-    }
+    const webUrl = resolveFrontendOrigin({
+      configuredWebUrl: this.config?.get<string>('WEB_URL'),
+      requestOrigin,
+      nodeEnv: this.config?.get<string>('NODE_ENV', 'development'),
+    });
 
     const correctionMagicLink = `${webUrl}/pre-ingreso/${token}`;
 

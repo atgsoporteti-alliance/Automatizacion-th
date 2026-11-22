@@ -3,25 +3,13 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { isAllowedFrontendOrigin } from './common/utils/web-url.util';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api');
-
-  const allowedOrigins = (process.env.WEB_URL ?? 'http://localhost:3000')
-    .split(',')
-    .map((o) => {
-      const trimmed = o.trim();
-      if (!trimmed) return '';
-      try {
-        return new URL(trimmed).origin;
-      } catch {
-        return trimmed.replace(/\/+$/, '');
-      }
-    })
-    .filter(Boolean);
 
   app.enableCors({
     origin: (
@@ -31,13 +19,7 @@ async function bootstrap() {
       if (!origin) {
         return callback(null, true);
       }
-      if (
-        allowedOrigins.includes(origin) ||
-        origin.endsWith('automatizacion-th-web.netlify.app') ||
-        origin === 'https://automatizacion-th-web.vercel.app' ||
-        (origin.startsWith('https://automatizacion-th-') &&
-          origin.endsWith('-thiarth-3ds-projects.vercel.app'))
-      ) {
+      if (isAllowedFrontendOrigin(origin, process.env.WEB_URL)) {
         return callback(null, true);
       }
       return callback(null, false);
