@@ -365,8 +365,8 @@ export default function ThDashboardPage() {
                     type="button"
                     onClick={() => handleSelectWorkflow(wf)}
                     className={`w-full rounded-xl border p-3.5 text-left transition-all cursor-pointer ${isSelected
-                        ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40'
-                        : 'border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50'
+                      ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40'
+                      : 'border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50'
                       }`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -490,7 +490,7 @@ export default function ThDashboardPage() {
                       </div>
 
                       {selectedWorkflow.employee.documents &&
-                      selectedWorkflow.employee.documents.length > 0 ? (
+                        selectedWorkflow.employee.documents.length > 0 ? (
                         <div className="grid gap-2 sm:grid-cols-2">
                           {selectedWorkflow.employee.documents.map((doc) => (
                             <div
@@ -563,8 +563,8 @@ export default function ThDashboardPage() {
                             type="button"
                             onClick={() => setSelectedArea(area)}
                             className={`rounded-xl border p-3.5 text-left transition-all cursor-pointer ${active
-                                ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20 dark:bg-blue-950/50'
-                                : 'border-slate-200 hover:border-blue-400 dark:border-slate-800'
+                              ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20 dark:bg-blue-950/50'
+                              : 'border-slate-200 hover:border-blue-400 dark:border-slate-800'
                               }`}
                           >
                             <div className="flex items-center justify-between">

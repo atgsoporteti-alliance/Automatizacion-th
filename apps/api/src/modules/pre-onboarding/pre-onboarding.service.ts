@@ -51,7 +51,7 @@ export class PreOnboardingService {
     private readonly auditService: AuditService,
     private readonly storageService: StorageService,
     private readonly employeesService: EmployeesService,
-  ) {}
+  ) { }
 
   async generateMagicLink(dto: GenerateMagicLinkDto) {
     const inviteId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -68,7 +68,13 @@ export class PreOnboardingService {
       },
     );
 
-    const webUrl = this.config.get<string>('WEB_URL', 'http://localhost:3000');
+    const rawWebUrl = this.config.get<string>('WEB_URL', 'http://localhost:3000').split(',')[0].trim();
+    let webUrl = 'http://localhost:3000';
+    try {
+      webUrl = new URL(rawWebUrl).origin;
+    } catch {
+      webUrl = rawWebUrl.replace(/\/+$/, '');
+    }
     const magicLink = `${webUrl}/pre-ingreso/${token}`;
 
     this.logger.log(`🔗 Magic Link generado (${dto.candidateEmail ?? inviteId}): ${magicLink}`);

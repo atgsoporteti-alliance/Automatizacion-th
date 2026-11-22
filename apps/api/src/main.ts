@@ -12,11 +12,30 @@ async function bootstrap() {
 
   const allowedOrigins = (process.env.WEB_URL ?? 'http://localhost:3000')
     .split(',')
-    .map((o) => o.trim())
+    .map((o) => {
+      const trimmed = o.trim();
+      if (!trimmed) return '';
+      try {
+        return new URL(trimmed).origin;
+      } catch {
+        return trimmed.replace(/\/+$/, '');
+      }
+    })
     .filter(Boolean);
 
   app.enableCors({
-    origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('automatizacion-th-web.netlify.app')
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, allowedOrigins[0] ?? false);
+    },
     credentials: true,
   });
 
