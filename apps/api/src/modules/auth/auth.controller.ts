@@ -27,14 +27,30 @@ export class AuthController {
   @Public()
   @ApiOperation({ summary: 'Diagnóstico de salud de API y conexión PostgreSQL' })
   async health() {
+    const rawUrl = this.config.get<string>('DATABASE_URL', '');
+    let dbHost = 'not-configured';
+    if (rawUrl) {
+      try {
+        dbHost = new URL(rawUrl).hostname;
+      } catch {
+        dbHost = 'invalid-url-format';
+      }
+    }
+
     try {
       await this.database.db.execute(sql`SELECT 1`);
-      return { ok: true, database: 'connected' };
+      return { ok: true, database: 'connected', dbHost };
     } catch (err) {
+      const agg = err as { message?: string; errors?: Array<{ message?: string }> };
+      const detail =
+        agg.message ||
+        agg.errors?.map((e) => e.message).filter(Boolean).join('; ') ||
+        String(err);
       return {
         ok: false,
         database: 'error',
-        error: err instanceof Error ? err.message : String(err),
+        dbHost,
+        error: detail,
       };
     }
   }

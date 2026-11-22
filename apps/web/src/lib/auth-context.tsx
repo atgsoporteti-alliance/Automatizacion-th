@@ -61,6 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithDevProfile = async (email: string) => {
     document.cookie = `${DEV_ROLE_COOKIE}=${encodeURIComponent(email)}; path=/; max-age=86400; SameSite=Lax`;
+    try {
+      window.localStorage.setItem(DEV_ROLE_COOKIE, email);
+    } catch {
+      // ignore storage error
+    }
     const profile = await apiClient.getMe();
     setUser(profile);
     document.cookie = `alliance_user_role=${encodeURIComponent(profile.role)}; path=/; max-age=86400; SameSite=Lax`;
@@ -74,6 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     document.cookie = `${DEV_ROLE_COOKIE}=; path=/; max-age=0`;
     document.cookie = `alliance_user_role=; path=/; max-age=0`;
+    try {
+      window.localStorage.removeItem(DEV_ROLE_COOKIE);
+    } catch {
+      // ignore storage error
+    }
     setUser(null);
     router.push('/login');
   };

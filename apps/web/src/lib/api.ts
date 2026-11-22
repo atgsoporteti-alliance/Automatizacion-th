@@ -137,7 +137,14 @@ export function getDevRoleEmailFromBrowser(): string | null {
   const match = document.cookie
     .split('; ')
     .find((row) => row.startsWith(`${DEV_ROLE_COOKIE}=`));
-  return match ? decodeURIComponent(match.split('=')[1]) : null;
+  if (match) {
+    return decodeURIComponent(match.split('=')[1]);
+  }
+  try {
+    return window.localStorage.getItem(DEV_ROLE_COOKIE);
+  } catch {
+    return null;
+  }
 }
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
@@ -190,6 +197,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
       }
     } catch {
       // ignore json parse error
+    }
+    if (response.status === 401 && typeof window !== 'undefined') {
+      const p = window.location.pathname;
+      if (!p.startsWith('/login') && !p.startsWith('/pre-ingreso')) {
+        window.location.href = `/login?redirect=${encodeURIComponent(p)}`;
+      }
     }
     throw new Error(message);
   }
