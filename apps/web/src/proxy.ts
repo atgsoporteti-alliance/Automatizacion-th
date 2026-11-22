@@ -45,9 +45,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // En modo desarrollo / UAT, también aceptamos la cookie de perfil de pruebas
-  const allowDevBypass =
-    process.env.NODE_ENV !== 'production' ||
-    process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === 'true';
+  const allowDevBypass = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS !== 'false';
   const isDevBypass =
     allowDevBypass &&
     Boolean(request.cookies.get('alliance_dev_role_email')?.value);

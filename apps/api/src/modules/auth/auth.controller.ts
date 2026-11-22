@@ -26,12 +26,11 @@ export class AuthController {
   @Get('dev-profiles')
   @Public()
   @ApiOperation({
-    summary: 'Listar perfiles de prueba (disponible en development o cuando NEXT_PUBLIC_DEV_AUTH_BYPASS=true)',
+    summary: 'Listar perfiles de prueba (disponible salvo que NEXT_PUBLIC_DEV_AUTH_BYPASS=false)',
   })
   async getDevProfiles() {
     const isUatBypass =
-      this.config.get<string>('NEXT_PUBLIC_DEV_AUTH_BYPASS', 'false') === 'true' ||
-      this.config.get<string>('NODE_ENV', 'development') !== 'production';
+      this.config.get<string>('NEXT_PUBLIC_DEV_AUTH_BYPASS', 'true') !== 'false';
 
     if (!isUatBypass) {
       return [];

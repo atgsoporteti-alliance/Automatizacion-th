@@ -37,8 +37,7 @@ export class SupabaseAuthGuard implements CanActivate {
       supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
     this.isDevBypassEnabled =
-      this.config.get<string>('NEXT_PUBLIC_DEV_AUTH_BYPASS', 'false') === 'true' ||
-      this.config.get<string>('NODE_ENV', 'development') !== 'production';
+      this.config.get<string>('NEXT_PUBLIC_DEV_AUTH_BYPASS', 'true') !== 'false';
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

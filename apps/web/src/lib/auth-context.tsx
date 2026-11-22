@@ -61,11 +61,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithDevProfile = async (email: string) => {
     document.cookie = `${DEV_ROLE_COOKIE}=${encodeURIComponent(email)}; path=/; max-age=86400; SameSite=Lax`;
-    const profile = await refreshUser();
-    if (profile) {
-      document.cookie = `alliance_user_role=${encodeURIComponent(profile.role)}; path=/; max-age=86400; SameSite=Lax`;
-      router.push(ROLE_HOME_ROUTES[profile.role] ?? '/dashboard/th');
-    }
+    const profile = await apiClient.getMe();
+    setUser(profile);
+    document.cookie = `alliance_user_role=${encodeURIComponent(profile.role)}; path=/; max-age=86400; SameSite=Lax`;
+    router.push(ROLE_HOME_ROUTES[profile.role] ?? '/dashboard/th');
   };
 
   const signOut = async () => {

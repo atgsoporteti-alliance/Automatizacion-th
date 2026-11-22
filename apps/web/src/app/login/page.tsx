@@ -19,6 +19,63 @@ import {
   Label,
 } from '@/components/ui/primitives';
 
+const FALLBACK_UAT_PROFILES: AuthenticatedUserProfile[] = [
+  {
+    id: '11111111-1111-4111-8111-111111111101',
+    email: 'th.analista@alliance.com',
+    fullName: 'Valeria Quintero (Analista TH)',
+    role: 'TH_ANALYST',
+    operationalArea: 'ALL',
+    clearanceDepartment: null,
+    isActive: true,
+  },
+  {
+    id: '11111111-1111-4111-8111-111111111102',
+    email: 'th.lider@alliance.com',
+    fullName: 'Carolina Mejía (Admin TH)',
+    role: 'TH_ADMIN',
+    operationalArea: 'ALL',
+    clearanceDepartment: null,
+    isActive: true,
+  },
+  {
+    id: '11111111-1111-4111-8111-111111111103',
+    email: 'lider.dsi@alliance.com',
+    fullName: 'Mateo Saldarriaga (Líder DSI)',
+    role: 'AREA_LEADER',
+    operationalArea: 'DSI',
+    clearanceDepartment: null,
+    isActive: true,
+  },
+  {
+    id: '11111111-1111-4111-8111-111111111104',
+    email: 'soporte.it@alliance.com',
+    fullName: 'Juan Pablo Rojas (Soporte IT)',
+    role: 'IT_SUPPORT',
+    operationalArea: 'ALL',
+    clearanceDepartment: null,
+    isActive: true,
+  },
+  {
+    id: '11111111-1111-4111-8111-111111111105',
+    email: 'finanzas@alliance.com',
+    fullName: 'Diana Marcela Ortiz (Finanzas)',
+    role: 'CLEARANCE_APPROVER',
+    operationalArea: null,
+    clearanceDepartment: 'FINANCE',
+    isActive: true,
+  },
+  {
+    id: '11111111-1111-4111-8111-111111111106',
+    email: 'admin@alliance.com',
+    fullName: 'Luis Gotopo (Super Admin)',
+    role: 'SUPER_ADMIN',
+    operationalArea: 'ALL',
+    clearanceDepartment: null,
+    isActive: true,
+  },
+];
+
 export default function LoginPage() {
   const router = useRouter();
   const { refreshUser, loginWithDevProfile } = useAuth();
@@ -26,19 +83,24 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [devProfiles, setDevProfiles] = useState<AuthenticatedUserProfile[]>([]);
+  const [uatProfiles, setUatProfiles] = useState<AuthenticatedUserProfile[]>(FALLBACK_UAT_PROFILES);
+  const [loadingRoleEmail, setLoadingRoleEmail] = useState<string | null>(null);
 
-  const isDev =
-    process.env.NODE_ENV === 'development' ||
-    process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === 'true';
+  const isUatBypassEnabled = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS !== 'false';
 
   useEffect(() => {
-    if (!isDev) return;
+    if (!isUatBypassEnabled) return;
     apiClient
       .getDevProfiles()
-      .then((rows) => setDevProfiles(rows))
-      .catch(() => setDevProfiles([]));
-  }, [isDev]);
+      .then((rows) => {
+        if (rows.length > 0) {
+          setUatProfiles(rows);
+        }
+      })
+      .catch(() => {
+        // Conserva FALLBACK_UAT_PROFILES si el backend está en cold-start
+      });
+  }, [isUatBypassEnabled]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +132,22 @@ export default function LoginPage() {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleQuickRoleLogin = async (roleEmail: string) => {
+    setError(null);
+    setLoadingRoleEmail(roleEmail);
+    try {
+      await loginWithDevProfile(roleEmail);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo conectar con la API del backend.',
+      );
+    } finally {
+      setLoadingRoleEmail(null);
     }
   };
 
@@ -143,30 +221,34 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        {isDev && devProfiles.length > 0 && (
+        {isUatBypassEnabled && uatProfiles.length > 0 && (
           <Card className="border-amber-200 dark:border-amber-900/70">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xs uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  Acceso Rápido de Pruebas por Rol (DEV)
+                  Acceso Rápido de Pruebas por Rol
                 </CardTitle>
                 <Badge variant="warning">UAT</Badge>
               </div>
               <CardDescription>
-                Solo visible en <code>NODE_ENV=development</code> para validar permisos RBAC.
+                Selecciona un rol para validar permisos RBAC en 1 clic (desactivable con{' '}
+                <code>NEXT_PUBLIC_DEV_AUTH_BYPASS=false</code>).
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-2 sm:grid-cols-2">
-              {devProfiles.map((profile) => (
+              {uatProfiles.map((profile) => (
                 <button
                   key={profile.id}
                   type="button"
-                  onClick={() => void loginWithDevProfile(profile.email)}
-                  className="rounded-md border border-slate-200 bg-slate-50 p-2.5 text-left transition-colors hover:border-slate-400 hover:bg-slate-100 cursor-pointer dark:border-slate-800 dark:bg-slate-900/70 dark:hover:border-slate-600"
+                  disabled={loadingRoleEmail !== null}
+                  onClick={() => void handleQuickRoleLogin(profile.email)}
+                  className="rounded-md border border-slate-200 bg-slate-50 p-2.5 text-left transition-colors hover:border-slate-400 hover:bg-slate-100 disabled:opacity-50 cursor-pointer dark:border-slate-800 dark:bg-slate-900/70 dark:hover:border-slate-600"
                 >
                   <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
-                    {ROLE_LABELS[profile.role]}
+                    {loadingRoleEmail === profile.email
+                      ? 'Ingresando...'
+                      : ROLE_LABELS[profile.role]}
                   </span>
                   <span className="block text-[11px] text-slate-500 truncate">
                     {profile.email}
