@@ -33,22 +33,16 @@ export default function AuditLogsPage() {
     <AppShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Bitácora Inmutable de Auditoría</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Registro automático de mutaciones (<code>POST</code>, <code>PATCH</code>,{' '}
-            <code>DELETE</code>) en Alliance HCM. Acceso exclusivo para{' '}
-            <strong>SUPER_ADMIN</strong> y <strong>TH_ADMIN</strong>.
+          <h1 className="text-xl font-semibold tracking-tight">Bitácora de Auditoría</h1>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Registro inmutable de mutaciones (<code>POST</code>, <code>PATCH</code>,{' '}
+            <code>DELETE</code>). Acceso para <strong>SUPER_ADMIN</strong> y{' '}
+            <strong>TH_ADMIN</strong>.
           </p>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileSearch className="h-4 w-4" />
-              Filtros de Búsqueda
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
+          <CardContent className="grid gap-4 p-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Actor ID / Correo</Label>
               <Input
@@ -69,23 +63,26 @@ export default function AuditLogsPage() {
         </Card>
 
         {error && (
-          <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-200 flex items-center gap-2">
+          <div className="rounded-md bg-rose-50 px-3.5 py-2.5 text-xs text-rose-700 dark:bg-rose-950/60 dark:text-rose-200 flex items-center gap-2">
             <ShieldAlert className="h-4 w-4 shrink-0" />
             <span>{error instanceof Error ? error.message : 'Acceso restringido.'}</span>
           </div>
         )}
 
         <Card>
-          <CardHeader>
-            <CardTitle>Eventos Recientes ({logs.length})</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <FileSearch className="h-4 w-4 text-zinc-500" />
+              Eventos recientes ({logs.length})
+            </CardTitle>
             <CardDescription>Últimos 100 registros ordenados cronológicamente.</CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             {isLoading ? (
-              <p className="text-sm text-slate-500">Cargando bitácora...</p>
+              <p className="text-xs text-zinc-500">Cargando bitácora...</p>
             ) : (
               <table className="w-full text-left text-xs">
-                <thead className="border-b border-slate-200 text-[11px] uppercase text-slate-500 dark:border-slate-800">
+                <thead className="border-b border-zinc-200/80 text-[11px] font-medium text-zinc-500 dark:border-zinc-800/80">
                   <tr>
                     <th className="py-2.5 pr-4">Fecha</th>
                     <th className="py-2.5 pr-4">Actor</th>
@@ -94,23 +91,23 @@ export default function AuditLogsPage() {
                     <th className="py-2.5">Detalle</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                <tbody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
                   {logs.map((log: AuditLogRecord) => (
                     <tr key={log.id}>
-                      <td className="py-2.5 pr-4 whitespace-nowrap text-slate-500">
+                      <td className="py-2.5 pr-4 whitespace-nowrap text-zinc-500">
                         {new Date(log.createdAt).toLocaleString('es-CO')}
                       </td>
                       <td className="py-2.5 pr-4 font-mono text-[11px]">{log.actorId}</td>
                       <td className="py-2.5 pr-4">
-                        <Badge variant="default">{log.action}</Badge>
+                        <Badge variant="secondary">{log.action}</Badge>
                       </td>
                       <td className="py-2.5 pr-4">
                         <span className="font-medium">{log.entity}</span>
-                        <span className="block font-mono text-[10px] text-slate-400">
+                        <span className="block font-mono text-[10px] text-zinc-400">
                           {log.entityId}
                         </span>
                       </td>
-                      <td className="py-2.5 font-mono text-[10px] text-slate-600 dark:text-slate-300 max-w-xs truncate">
+                      <td className="py-2.5 font-mono text-[10px] text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
                         {JSON.stringify(log.newValues ?? log.oldValues ?? {})}
                       </td>
                     </tr>

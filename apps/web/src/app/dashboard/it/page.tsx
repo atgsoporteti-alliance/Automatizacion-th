@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircle2,
   Clock,
-  Cpu,
   RefreshCw,
   Ticket,
   Webhook,
@@ -61,7 +60,7 @@ export default function ItDashboardPage() {
       }),
     onSuccess: (_data, vars) => {
       setWebhookMessage(
-        `Webhook ServiceDesk Plus simulado para ticket ${vars.ticketId} → Estado: ${vars.status}`,
+        `Webhook ServiceDesk Plus simulado para ticket ${vars.ticketId} → ${vars.status}`,
       );
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
       queryClient.invalidateQueries({ queryKey: ['kpis'] });
@@ -73,58 +72,62 @@ export default function ItDashboardPage() {
   return (
     <AppShell>
       <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Consola Operativa IT / Helpdesk</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Cola sincronizada con ManageEngine ServiceDesk Plus vía BullMQ y Webhooks bidireccionales.
+            <h1 className="text-xl font-semibold tracking-tight">Consola Operativa IT</h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Cola sincronizada con ManageEngine ServiceDesk Plus vía BullMQ y webhooks.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex flex-wrap items-center gap-1 rounded-md border border-zinc-200/80 bg-white p-1 dark:border-zinc-800/80 dark:bg-[#0f0f12]">
             {(['ALL', ...OPERATIONAL_AREAS] as const).map((area) => (
-              <Button
+              <button
                 key={area}
-                size="sm"
-                variant={areaFilter === area ? 'default' : 'outline'}
+                type="button"
                 onClick={() => setAreaFilter(area)}
+                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                  areaFilter === area
+                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                    : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-100'
+                }`}
               >
-                {area === 'ALL' ? 'Todas las Áreas' : area}
-              </Button>
+                {area === 'ALL' ? 'Todas' : area}
+              </button>
             ))}
           </div>
         </div>
 
         {webhookMessage && (
-          <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-3.5 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200">
+          <div className="rounded-md bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
             {webhookMessage}
           </div>
         )}
 
         {isLoading ? (
           <Card>
-            <CardContent className="p-8 text-center text-sm text-slate-500">
+            <CardContent className="p-8 text-center text-xs text-zinc-500">
               Cargando cola de aprovisionamiento IT...
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-5">
+          <div className="space-y-4">
             {workflows.map((wf: WorkflowRecord) => {
               const stepIdx = getStepIndex(wf.currentStep);
               const items = wf.provisioningPayload?.items ?? [];
 
               return (
                 <Card key={wf.id}>
-                  <CardHeader>
+                  <CardHeader className="pb-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <CardTitle className="text-lg">{wf.employee.fullName}</CardTitle>
-                          <Badge variant="purple">{wf.employee.operationalArea ?? 'Sin Área'}</Badge>
-                          <Badge variant={wf.flowType === 'OFFBOARDING' ? 'danger' : 'default'}>
+                          <CardTitle className="text-base">{wf.employee.fullName}</CardTitle>
+                          <Badge variant="outline">{wf.employee.operationalArea ?? 'Sin Área'}</Badge>
+                          <Badge variant={wf.flowType === 'OFFBOARDING' ? 'danger' : 'secondary'}>
                             {wf.flowType}
                           </Badge>
-                          {wf.isOutOfSla && <Badge variant="danger">Fuera de SLA</Badge>}
+                          {wf.isOutOfSla && <Badge variant="danger">Fuera SLA</Badge>}
                         </div>
                         <CardDescription>
                           {wf.employee.jobTitle ?? 'Cargo por asignar'} ·{' '}
@@ -132,70 +135,64 @@ export default function ItDashboardPage() {
                         </CardDescription>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2">
-                        {wf.helpdeskTicketId ? (
-                          <Badge variant="success">
-                            <Ticket className="h-3.5 w-3.5" />
-                            {wf.helpdeskTicketId} ({wf.helpdeskTicketStatus ?? 'OPEN'})
-                          </Badge>
-                        ) : (
-                          <Badge variant="warning">
-                            <Clock className="h-3.5 w-3.5" />
-                            Sin Ticket Helpdesk
-                          </Badge>
-                        )}
-                      </div>
+                      {wf.helpdeskTicketId ? (
+                        <Badge variant="success">
+                          <Ticket className="h-3 w-3" />
+                          {wf.helpdeskTicketId} ({wf.helpdeskTicketStatus ?? 'OPEN'})
+                        </Badge>
+                      ) : (
+                        <Badge variant="warning">
+                          <Clock className="h-3 w-3" />
+                          Sin Ticket
+                        </Badge>
+                      )}
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-5">
-                    {/* Línea de tiempo visual */}
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+
+                  <CardContent className="space-y-4">
+                    {/* Línea de tiempo minimalista */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
                       {TIMELINE_STEPS.map((st, idx) => {
                         const completed = stepIdx >= idx && stepIdx !== -1;
                         return (
-                          <div
-                            key={st}
-                            className={`rounded-lg border p-2.5 text-xs ${
-                              completed
-                                ? 'border-emerald-300 bg-emerald-50/70 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200'
-                                : 'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-950'
-                            }`}
-                          >
-                            <div className="flex items-center gap-1.5 font-semibold">
-                              {completed ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              ) : (
-                                <Cpu className="h-3.5 w-3.5 opacity-50 shrink-0" />
-                              )}
-                              <span className="truncate">{WORKFLOW_STEP_LABELS[st]}</span>
-                            </div>
+                          <div key={st} className="space-y-1.5">
+                            <div
+                              className={`h-1 w-full rounded-full ${
+                                completed
+                                  ? 'bg-emerald-600 dark:bg-emerald-400'
+                                  : 'bg-zinc-200 dark:bg-zinc-800'
+                              }`}
+                            />
+                            <span
+                              className={`block truncate text-[11px] ${
+                                completed
+                                  ? 'font-medium text-zinc-900 dark:text-zinc-100'
+                                  : 'text-zinc-400 dark:text-zinc-500'
+                              }`}
+                            >
+                              {WORKFLOW_STEP_LABELS[st]}
+                            </span>
                           </div>
                         );
                       })}
                     </div>
 
-                    {/* Checklist de ítems del Motor de Reglas */}
                     {items.length > 0 && (
-                      <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
-                        <p className="text-xs font-semibold uppercase text-slate-500 mb-2">
-                          Ítems de Aprovisionamiento (Regla {wf.employee.operationalArea})
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {items.map((item) => (
-                            <Badge key={item} variant="secondary">
-                              {item}
-                            </Badge>
-                          ))}
-                        </div>
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[11px] text-zinc-400 mr-1">Ítems:</span>
+                        {items.map((item) => (
+                          <Badge key={item} variant="secondary">
+                            {item}
+                          </Badge>
+                        ))}
                       </div>
                     )}
 
-                    {/* Simulador local de Webhook ServiceDesk Plus */}
                     {wf.helpdeskTicketId && wf.currentStep !== 'COMPLETED' && (
-                      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
-                        <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                          <Webhook className="h-3.5 w-3.5 text-blue-600" />
-                          Simular Webhook entrante desde ManageEngine ServiceDesk Plus:
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-zinc-200/80 dark:border-zinc-800/80">
+                        <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+                          <Webhook className="h-3.5 w-3.5" />
+                          Simular webhook ServiceDesk Plus
                         </span>
                         <div className="flex flex-wrap gap-2">
                           <Button
@@ -211,7 +208,7 @@ export default function ItDashboardPage() {
                             }
                           >
                             <RefreshCw className="h-3.5 w-3.5" />
-                            Marcar IN_PROGRESS
+                            IN_PROGRESS
                           </Button>
                           <Button
                             size="sm"
@@ -226,7 +223,7 @@ export default function ItDashboardPage() {
                             }
                           >
                             <CheckCircle2 className="h-3.5 w-3.5" />
-                            Simular Ticket RESOLVED (Completar)
+                            RESOLVED
                           </Button>
                         </div>
                       </div>

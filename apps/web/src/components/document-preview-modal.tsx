@@ -40,21 +40,21 @@ export function DocumentPreviewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+        className="fixed inset-0 bg-zinc-950/60 backdrop-blur-xs"
         onClick={onClose}
       />
-      <div className="relative z-10 flex w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-[#111622]">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+      <div className="relative z-10 flex w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-[#0f0f12]">
+        <div className="flex items-center justify-between border-b border-zinc-200/80 px-4 py-3 dark:border-zinc-800/80">
           <div className="flex items-center gap-2 min-w-0">
-            <FileText className="h-4 w-4 shrink-0 text-slate-500" />
-            <span className="truncate text-sm font-semibold">{fileName}</span>
+            <FileText className="h-4 w-4 shrink-0 text-zinc-500" />
+            <span className="truncate text-sm font-medium">{fileName}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {objectUrl && (
               <a
                 href={objectUrl}
                 download={fileName}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-slate-900 px-3 text-xs font-medium text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-zinc-900 px-3 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
               >
                 <Download className="h-3.5 w-3.5" />
                 Descargar
@@ -66,21 +66,21 @@ export function DocumentPreviewModal({
           </div>
         </div>
 
-        <div className="flex-1 bg-slate-100 p-4 dark:bg-slate-950">
+        <div className="flex-1 bg-zinc-100 p-4 dark:bg-zinc-950">
           {loading ? (
-            <div className="flex h-[65vh] items-center justify-center text-sm text-slate-500">
-              Cargando archivo desde Supabase Storage (bucket alliance)...
+            <div className="flex h-[65vh] items-center justify-center text-xs text-zinc-500">
+              Cargando archivo desde Supabase Storage (alliance)...
             </div>
           ) : error ? (
-            <div className="flex h-[65vh] items-center justify-center text-sm text-rose-600">
+            <div className="flex h-[65vh] items-center justify-center text-xs text-rose-600 dark:text-rose-400">
               {error}
             </div>
           ) : !objectUrl ? (
-            <div className="flex h-[65vh] items-center justify-center text-sm text-slate-500">
+            <div className="flex h-[65vh] items-center justify-center text-xs text-zinc-500">
               No se encontró contenido para previsualizar.
             </div>
           ) : isImage ? (
-            <div className="flex h-[65vh] items-center justify-center overflow-auto rounded-md bg-white p-4 dark:bg-slate-900">
+            <div className="flex h-[65vh] items-center justify-center overflow-auto rounded-md bg-white p-4 dark:bg-zinc-900">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={objectUrl}
@@ -92,17 +92,17 @@ export function DocumentPreviewModal({
             <iframe
               src={objectUrl}
               title={fileName}
-              className="h-[70vh] w-full rounded-md border border-slate-200 bg-white dark:border-slate-800"
+              className="h-[70vh] w-full rounded-md border border-zinc-200 bg-white dark:border-zinc-800"
             />
           ) : (
-            <div className="flex h-[65vh] flex-col items-center justify-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+            <div className="flex h-[65vh] flex-col items-center justify-center gap-3 text-xs text-zinc-600 dark:text-zinc-300">
               <p>Previsualización directa no disponible para el tipo {mimeType}.</p>
               <a
                 href={objectUrl}
                 download={fileName}
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-medium text-white"
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-zinc-900 px-4 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
               >
-                <Download className="h-4 w-4" />
+                <Download className="h-3.5 w-3.5" />
                 Descargar para abrir
               </a>
             </div>

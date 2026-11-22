@@ -44,53 +44,60 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       {
         href: '/dashboard/th',
-        label: 'Consola de Validación TH',
+        label: 'Validación TH',
         icon: ClipboardCheck,
         allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN'],
       },
       {
         href: '/dashboard/th?invite=1',
-        label: 'Generar Link de Pre-Ingreso',
+        label: 'Link Pre-Ingreso',
         icon: Link2,
         allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN'],
       },
       {
         href: '/dashboard/offboarding',
-        label: 'Offboarding & Paz y Salvo',
+        label: 'Offboarding',
         icon: UserMinus,
-        allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'IT_SUPPORT', 'CLEARANCE_APPROVER', 'SUPER_ADMIN'],
+        allowedRoles: [
+          'TH_ANALYST',
+          'TH_ADMIN',
+          'AREA_LEADER',
+          'IT_SUPPORT',
+          'CLEARANCE_APPROVER',
+          'SUPER_ADMIN',
+        ],
       },
     ],
   },
   {
-    label: 'Liderazgo & Operación',
+    label: 'Operación',
     items: [
       {
         href: '/dashboard/team',
-        label: 'Mi Equipo y Aprobación DSI',
+        label: 'Mi Equipo y DSI',
         icon: Users,
         allowedRoles: ['AREA_LEADER', 'SUPER_ADMIN'],
       },
       {
         href: '/dashboard/it',
-        label: 'Consola IT / Helpdesk',
+        label: 'IT / Helpdesk',
         icon: Cpu,
         allowedRoles: ['IT_SUPPORT', 'SUPER_ADMIN'],
       },
     ],
   },
   {
-    label: 'Administración',
+    label: 'Sistema',
     items: [
       {
         href: '/dashboard/admin/users',
-        label: 'Usuarios y Roles RBAC',
+        label: 'Usuarios y Roles',
         icon: UserCog,
         allowedRoles: ['SUPER_ADMIN'],
       },
       {
         href: '/dashboard/admin/audit-logs',
-        label: 'Bitácora de Auditoría',
+        label: 'Auditoría',
         icon: FileSearch,
         allowedRoles: ['SUPER_ADMIN', 'TH_ADMIN'],
       },
@@ -99,12 +106,12 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 const ROUTE_TITLES: Record<string, string> = {
-  '/dashboard/th': 'Talento Humano · Consola de Validación',
-  '/dashboard/it': 'IT & Helpdesk · Cola de Aprovisionamiento',
+  '/dashboard/th': 'Talento Humano · Validación',
+  '/dashboard/it': 'IT & Helpdesk · Aprovisionamiento',
   '/dashboard/team': 'Líder de Área · Equipo y Puerta DSI',
-  '/dashboard/offboarding': 'Offboarding · Retiros y Paz y Salvo Digital',
-  '/dashboard/admin/users': 'Administración · Gestión de Usuarios y Roles',
-  '/dashboard/admin/audit-logs': 'Administración · Bitácora Inmutable (Audit Logs)',
+  '/dashboard/offboarding': 'Offboarding · Paz y Salvo',
+  '/dashboard/admin/users': 'Administración · Usuarios y Roles',
+  '/dashboard/admin/audit-logs': 'Administración · Auditoría',
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -125,25 +132,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   })).filter((group) => group.items.length > 0);
 
   const SidebarContent = (
-    <div className="flex h-full flex-col justify-between bg-white dark:bg-[#0e131e] border-r border-slate-200 dark:border-slate-800/80">
+    <div className="flex h-full flex-col justify-between border-r border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-[#0c0c0f]">
       <div>
-        <div className="flex h-14 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800/80">
-          <Link href="/" className="flex items-center gap-2.5" onClick={() => setMobileOpen(false)}>
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
-              <Building2 className="h-4 w-4" />
+        <div className="flex h-12 items-center justify-between border-b border-zinc-200/80 px-4 dark:border-zinc-800/80">
+          <Link href="/" className="flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+            <div className="flex h-6 w-6 items-center justify-center rounded bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">
+              <Building2 className="h-3.5 w-3.5" />
             </div>
-            <div className="leading-tight">
-              <span className="block text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                Alliance HCM
-              </span>
-              <span className="block text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Core TH &amp; IT
-              </span>
-            </div>
+            <span className="text-sm font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">
+              Alliance HCM
+            </span>
           </Link>
           <button
             type="button"
-            className="lg:hidden rounded-md p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="lg:hidden rounded-md p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
             onClick={() => setMobileOpen(false)}
             aria-label="Cerrar menú"
           >
@@ -154,7 +156,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="space-y-5 px-3 py-4">
           {visibleGroups.map((group) => (
             <div key={group.label} className="space-y-1">
-              <p className="px-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              <p className="px-2.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
                 {group.label}
               </p>
               <nav className="space-y-0.5">
@@ -168,13 +170,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       href={item.href}
                       onClick={() => setMobileOpen(false)}
                       className={cn(
-                        'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors',
+                        'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors',
                         active
-                          ? 'bg-slate-900 text-white dark:bg-slate-800 dark:text-white'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100',
+                          ? 'bg-zinc-100 font-medium text-zinc-950 dark:bg-zinc-800/80 dark:text-zinc-50'
+                          : 'text-zinc-600 hover:bg-zinc-100/60 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100',
                       )}
                     >
-                      <Icon className="h-4 w-4 shrink-0" />
+                      <Icon className="h-4 w-4 shrink-0 opacity-75" />
                       <span className="truncate">{item.label}</span>
                     </Link>
                   );
@@ -185,36 +187,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {(activeRole === 'SUPER_ADMIN' || activeRole === 'IT_SUPPORT') && (
             <div className="space-y-1">
-              <p className="px-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Sistema &amp; API
+              <p className="px-2.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
+                API
               </p>
               <a
                 href={swaggerUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-between rounded-md px-2.5 py-2 text-[13px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
+                className="flex items-center justify-between rounded-md px-2.5 py-1.5 text-[13px] text-zinc-600 transition-colors hover:bg-zinc-100/60 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
               >
                 <span className="flex items-center gap-2.5">
-                  <ShieldCheck className="h-4 w-4 shrink-0" />
-                  OpenAPI / Swagger
+                  <ShieldCheck className="h-4 w-4 shrink-0 opacity-75" />
+                  Swagger Docs
                 </span>
-                <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+                <ExternalLink className="h-3 w-3 opacity-50" />
               </a>
             </div>
           )}
         </div>
       </div>
 
-      {/* Sidebar Footer: Perfil RBAC + Tema + Logout */}
-      <div className="border-t border-slate-200 p-3 space-y-2.5 dark:border-slate-800/80">
+      {/* Footer compacto */}
+      <div className="border-t border-zinc-200/80 p-3 space-y-2.5 dark:border-zinc-800/80">
         {user && (
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-900/70">
-            <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+          <div className="px-1 space-y-1">
+            <p className="truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">
               {user.fullName}
             </p>
-            <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">{user.email}</p>
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              <Badge variant="purple">{ROLE_LABELS[user.role]}</Badge>
+            <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">{user.email}</p>
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              <Badge variant="default">{ROLE_LABELS[user.role]}</Badge>
               {user.operationalArea && user.operationalArea !== 'ALL' && (
                 <Badge variant="outline">{user.operationalArea}</Badge>
               )}
@@ -222,21 +224,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <Button
             variant="outline"
             size="sm"
             className="flex-1 justify-between"
             onClick={toggleTheme}
           >
-            <span className="text-xs">{theme === 'dark' ? 'Claro' : 'Oscuro'}</span>
+            <span className="text-xs">{theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}</span>
             {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
           </Button>
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
             onClick={() => void signOut()}
             title="Cerrar sesión"
+            aria-label="Cerrar sesión"
           >
             <LogOut className="h-3.5 w-3.5" />
           </Button>
@@ -246,45 +249,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen flex bg-[#f6f7f9] text-slate-900 dark:bg-[#0b0f17] dark:text-slate-100">
-      <aside className="hidden lg:block lg:w-64 lg:shrink-0 lg:sticky lg:top-0 lg:h-screen">
+    <div className="min-h-screen flex bg-[#fafafa] text-zinc-950 dark:bg-[#09090b] dark:text-zinc-100">
+      <aside className="hidden lg:block lg:w-60 lg:shrink-0 lg:sticky lg:top-0 lg:h-screen">
         {SidebarContent}
       </aside>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
           <div
-            className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs"
+            className="fixed inset-0 bg-zinc-950/40 backdrop-blur-xs"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative z-10 w-64 max-w-[80vw] h-full">{SidebarContent}</aside>
+          <aside className="relative z-10 w-60 max-w-[80vw] h-full">{SidebarContent}</aside>
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur-md sm:px-6 dark:border-slate-800/80 dark:bg-[#0e131e]/90">
+        <header className="sticky top-0 z-20 flex h-12 items-center justify-between border-b border-zinc-200/80 bg-[#fafafa]/85 px-4 backdrop-blur-md sm:px-6 dark:border-zinc-800/80 dark:bg-[#09090b]/85">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              className="lg:hidden rounded-md border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="lg:hidden rounded-md border border-zinc-200 p-1.5 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800"
               onClick={() => setMobileOpen(true)}
               aria-label="Abrir menú lateral"
             >
               <Menu className="h-4 w-4" />
             </button>
-            <h2 className="truncate text-sm font-semibold text-slate-800 dark:text-slate-200">
+            <span className="truncate text-[13px] font-medium text-zinc-700 dark:text-zinc-300">
               {pageTitle}
-            </h2>
+            </span>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <span className="hidden sm:inline-block rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline-block text-xs text-zinc-500 dark:text-zinc-400">
               {user ? ROLE_LABELS[user.role] : 'Autenticando...'}
             </span>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6 lg:py-8">{children}</main>
       </div>
     </div>
   );

@@ -340,24 +340,24 @@ export function PreOnboardingWizard({ token }: { token: string }) {
     const isPdf = mimeType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
 
     return (
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2.5 dark:border-slate-800 dark:bg-slate-950">
+      <div className="rounded-md border border-zinc-200/80 bg-zinc-50/60 p-3 space-y-2.5 dark:border-zinc-800/80 dark:bg-zinc-950/60">
         {local && (
-          <div className="overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="overflow-hidden rounded border border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-900">
             {isImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={local.objectUrl}
                 alt={fileName}
-                className="h-32 w-full object-contain p-1"
+                className="h-28 w-full object-contain p-1"
               />
             ) : isPdf ? (
               <iframe
                 src={local.objectUrl}
                 title={fileName}
-                className="h-36 w-full bg-white"
+                className="h-32 w-full bg-white"
               />
             ) : (
-              <div className="flex h-20 items-center justify-center text-xs text-slate-500">
+              <div className="flex h-16 items-center justify-center text-xs text-zinc-500">
                 Archivo listo ({fileName})
               </div>
             )}
@@ -366,15 +366,15 @@ export function PreOnboardingWizard({ token }: { token: string }) {
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="min-w-0">
-            <p className="font-semibold truncate text-slate-800 dark:text-slate-200">{fileName}</p>
-            <p className="text-[11px] text-slate-500">
+            <p className="font-medium truncate text-zinc-900 dark:text-zinc-100">{fileName}</p>
+            <p className="text-[11px] text-zinc-500">
               {fileSizeKb} KB ·{' '}
               {uploaded ? (
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                <span className="text-emerald-700 dark:text-emerald-400">
                   Guardado en Supabase (alliance)
                 </span>
               ) : errMsg ? (
-                <span className="text-rose-600 dark:text-rose-400">Error al subir a nube</span>
+                <span className="text-rose-600 dark:text-rose-400">Error al subir</span>
               ) : (
                 'Subiendo...'
               )}
@@ -382,7 +382,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
           </div>
 
           {local && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               <Button
                 type="button"
                 size="sm"
@@ -401,7 +401,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
               <a
                 href={local.objectUrl}
                 download={fileName}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-[#0f0f12] dark:text-zinc-200 dark:hover:bg-zinc-900"
               >
                 <Download className="h-3.5 w-3.5" />
                 Descargar
@@ -411,7 +411,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
         </div>
 
         {errMsg && (
-          <div className="rounded-md bg-rose-50 p-2 text-[11px] text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+          <div className="rounded bg-rose-50 px-2.5 py-1.5 text-[11px] text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
             {errMsg}
           </div>
         )}
@@ -552,11 +552,11 @@ export function PreOnboardingWizard({ token }: { token: string }) {
 
   if (tokenState === 'VERIFYING') {
     return (
-      <Card className="mx-auto max-w-xl">
+      <Card className="mx-auto max-w-lg">
         <CardContent className="p-8 text-center space-y-2">
-          <RefreshCw className="mx-auto h-6 w-6 animate-spin text-slate-500" />
+          <RefreshCw className="mx-auto h-5 w-5 animate-spin text-zinc-400" />
           <p className="text-sm font-medium">Validando enlace seguro de pre-ingreso...</p>
-          <p className="text-xs text-slate-500">Verificando firma JWT y vigencia del acceso.</p>
+          <p className="text-xs text-zinc-500">Verificando firma JWT y vigencia del acceso.</p>
         </CardContent>
       </Card>
     );
@@ -564,19 +564,18 @@ export function PreOnboardingWizard({ token }: { token: string }) {
 
   if (tokenState === 'INVALID') {
     return (
-      <Card className="mx-auto max-w-xl border-rose-200 dark:border-rose-900">
+      <Card className="mx-auto max-w-lg">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-400">
-            <AlertTriangle className="h-6 w-6" />
+          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
+            <AlertTriangle className="h-5 w-5" />
           </div>
-          <CardTitle className="text-lg">Enlace Inválido o Expirado</CardTitle>
+          <CardTitle className="text-base">Enlace inválido o expirado</CardTitle>
           <CardDescription>
             {tokenError ?? 'No cuentas con autorización activa para acceder a este formulario.'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-center text-xs text-slate-500">
-          Por seguridad y gestión de roles, solicita un nuevo enlace de pre-ingreso al equipo de
-          Talento Humano de Alliance.
+        <CardContent className="text-center text-xs text-zinc-500">
+          Solicita un nuevo enlace de pre-ingreso al equipo de Talento Humano de Alliance.
         </CardContent>
       </Card>
     );
@@ -584,43 +583,43 @@ export function PreOnboardingWizard({ token }: { token: string }) {
 
   if (receipt) {
     return (
-      <Card className="mx-auto max-w-2xl border-emerald-200 dark:border-emerald-900">
+      <Card className="mx-auto max-w-xl">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
-            <CheckCircle2 className="h-8 w-8" />
+          <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+            <CheckCircle2 className="h-6 w-6" />
           </div>
-          <CardTitle className="text-2xl">Pre-Ingreso Registrado Exitosamente</CardTitle>
+          <CardTitle className="text-lg">Pre-Ingreso registrado</CardTitle>
           <CardDescription>
-            Tu expediente digital de 24 campos y tu firma electrónica Ley 1581 fueron enviados a Talento Humano.
+            Tu expediente de 24 campos y firma electrónica Ley 1581 fueron enviados a Talento Humano.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-xl bg-slate-50 p-4 text-sm space-y-2 dark:bg-slate-950">
-            <div className="flex justify-between">
-              <span className="text-slate-500">ID Expediente:</span>
-              <span className="font-mono text-xs">{receipt.employeeId}</span>
+          <div className="rounded-md border border-zinc-200/80 divide-y divide-zinc-200/80 text-xs dark:border-zinc-800/80 dark:divide-zinc-800/80">
+            <div className="flex justify-between px-3.5 py-2.5">
+              <span className="text-zinc-500">ID Expediente</span>
+              <span className="font-mono">{receipt.employeeId}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">ID Workflow:</span>
-              <span className="font-mono text-xs">{receipt.workflowId}</span>
+            <div className="flex justify-between px-3.5 py-2.5">
+              <span className="text-zinc-500">ID Workflow</span>
+              <span className="font-mono">{receipt.workflowId}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Edad calculada:</span>
-              <span className="font-semibold">{receipt.computedAge} años</span>
+            <div className="flex justify-between px-3.5 py-2.5">
+              <span className="text-zinc-500">Edad calculada</span>
+              <span className="font-medium">{receipt.computedAge} años</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Política Habeas Data:</span>
+            <div className="flex justify-between px-3.5 py-2.5">
+              <span className="text-zinc-500">Política Habeas Data</span>
               <span>{receipt.consentReceipt.policyVersion}</span>
             </div>
-            <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-              <span className="block text-xs text-slate-500 mb-1">Sello criptográfico SHA-256:</span>
-              <code className="block break-all rounded bg-slate-200/70 p-2 text-[11px] dark:bg-slate-900">
+            <div className="px-3.5 py-2.5 space-y-1">
+              <span className="block text-zinc-500">Sello criptográfico SHA-256</span>
+              <code className="block break-all text-[11px] text-zinc-600 dark:text-zinc-300">
                 {receipt.consentReceipt.documentSha256Hash}
               </code>
             </div>
           </div>
           {receipt.isRehire && (
-            <Badge variant="purple" className="w-full justify-center py-1.5">
+            <Badge variant="outline" className="w-full justify-center py-1.5">
               Reintegro vinculado automáticamente al expediente histórico
             </Badge>
           )}
@@ -630,56 +629,58 @@ export function PreOnboardingWizard({ token }: { token: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       {/* Encabezado y barra de progreso */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Portal de Pre-Ingreso Digital</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <h1 className="text-xl font-semibold tracking-tight">Portal de Pre-Ingreso</h1>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             {invitedCandidateName ? `Hola, ${invitedCandidateName} · ` : ''}
-            Formato Único Alliance (24 campos) · Paso {step} de 5: {STEPS[step - 1].title}
+            Paso {step} de 5 · {STEPS[step - 1].title}
           </p>
         </div>
         {draftSavedAt && (
-          <Badge variant="secondary" className="self-start sm:self-auto">
-            <Save className="h-3 w-3" /> Borrador guardado {draftSavedAt}
+          <Badge variant="outline" className="self-start sm:self-auto">
+            <Save className="h-3 w-3" /> Borrador {draftSavedAt}
           </Badge>
         )}
       </div>
 
       {isCorrectionMode && correctionNote && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200 space-y-1">
-          <p className="font-semibold flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
+        <div className="rounded-md border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-200 space-y-1">
+          <p className="font-medium flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             Devolución de Talento Humano — Corrección requerida
           </p>
-          <p className="text-xs leading-relaxed">{correctionNote}</p>
+          <p className="leading-relaxed opacity-90">{correctionNote}</p>
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         <Progress value={(step / 5) * 100} />
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-5 gap-1.5">
           {STEPS.map((s) => {
             const unlocked = s.number <= maxStepReached;
+            const current = step === s.number;
+            const completed = s.number < step;
             return (
               <button
                 key={s.number}
                 type="button"
                 disabled={!unlocked}
                 onClick={() => handleSelectStepTab(s.number)}
-                className={`rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
-                  !unlocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                className={`rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${
+                  !unlocked ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
                 } ${
-                  step === s.number
-                    ? 'bg-blue-600 text-white font-semibold'
-                    : s.number < step
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-                      : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                  current
+                    ? 'border-zinc-900 bg-zinc-900 text-white font-medium dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                    : completed
+                      ? 'border-zinc-200 bg-white text-zinc-900 hover:border-zinc-400 dark:border-zinc-800 dark:bg-[#0f0f12] dark:text-zinc-100'
+                      : 'border-transparent text-zinc-400 dark:text-zinc-500'
                 }`}
               >
-                <span className="block font-bold">Paso {s.number}</span>
-                <span className="hidden sm:block truncate">{s.title}</span>
+                <span className="block text-[11px] opacity-75">Paso {s.number}</span>
+                <span className="hidden sm:block truncate font-medium">{s.title}</span>
               </button>
             );
           })}
@@ -688,48 +689,48 @@ export function PreOnboardingWizard({ token }: { token: string }) {
 
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <Card>
-          <CardHeader>
-            <CardTitle>{STEPS[step - 1].title}</CardTitle>
+          <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+            <CardTitle className="text-base">{STEPS[step - 1].title}</CardTitle>
             <CardDescription>
-              Completa todos los campos requeridos. Tus cambios se guardan automáticamente en este navegador.
+              Completa los campos requeridos. El progreso se guarda automáticamente en tu navegador.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="pt-5 space-y-5">
             {/* PASO 1 */}
             {step === 1 && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label>1. Nombre Completo *</Label>
+                  <Label>1. Nombre completo *</Label>
                   <Input placeholder="Ej: Laura Valentina Gómez" {...form.register('fullName', { required: true })} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>2. Nombre Preferido para Credenciales *</Label>
+                  <Label>2. Nombre preferido para credenciales *</Label>
                   <Input placeholder="Ej: laura.gomez" {...form.register('preferredNameCredentials', { required: true })} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>3. Número de Cédula *</Label>
+                  <Label>3. Número de cédula *</Label>
                   <div className="relative">
                     <Input placeholder="Solo números (ej: 1019234567)" {...form.register('nationalId', { required: true })} />
                     {checkingDuplicate && (
-                      <RefreshCw className="absolute right-3 top-3 h-4 w-4 animate-spin text-slate-400" />
+                      <RefreshCw className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-zinc-400" />
                     )}
                   </div>
                   {duplicateCheck && !isCorrectionMode && (
                     <div
-                      className={`mt-1.5 rounded-lg p-2.5 text-xs flex items-start gap-2 ${
+                      className={`mt-1.5 rounded-md px-2.5 py-2 text-xs flex items-start gap-2 ${
                         !duplicateCheck.exists
                           ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                           : duplicateCheck.isRehire
-                            ? 'bg-violet-50 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300'
+                            ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300'
                             : 'bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
                       }`}
                     >
                       {duplicateCheck.exists && !duplicateCheck.isRehire ? (
-                        <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                       ) : (
-                        <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                       )}
                       <span>{duplicateCheck.message}</span>
                     </div>
@@ -737,27 +738,31 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>4. Lugar de Expedición *</Label>
+                  <Label>4. Lugar de expedición *</Label>
                   <Input placeholder="Ej: Bogotá D.C." {...form.register('idIssuePlace', { required: true })} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>5. Fecha de Nacimiento *</Label>
+                  <Label>5. Fecha de nacimiento *</Label>
                   <Input type="date" {...form.register('birthDate', { required: true })} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>6. Edad (Calculada automáticamente)</Label>
-                  <Input value={watchedValues.birthDate ? `${computedAge} años` : '—'} readOnly className="bg-slate-100 dark:bg-slate-800 font-semibold" />
+                  <Label>6. Edad (calculada automáticamente)</Label>
+                  <Input
+                    value={watchedValues.birthDate ? `${computedAge} años` : '—'}
+                    readOnly
+                    className="bg-zinc-50 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
+                  />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>7. Lugar de Nacimiento *</Label>
+                  <Label>7. Lugar de nacimiento *</Label>
                   <Input placeholder="Ej: Medellín, Antioquia" {...form.register('birthPlace', { required: true })} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>8. Estado Civil *</Label>
+                  <Label>8. Estado civil *</Label>
                   <Select {...form.register('maritalStatus')}>
                     {MARITAL_STATUSES.map((ms) => (
                       <option key={ms} value={ms}>
@@ -773,12 +778,12 @@ export function PreOnboardingWizard({ token }: { token: string }) {
             {step === 2 && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label>9. Dirección de Residencia *</Label>
+                  <Label>9. Dirección de residencia *</Label>
                   <Input placeholder="Ej: Calle 127 # 45-20 Apto 502" {...form.register('address', { required: true })} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>10. Barrio y Ciudad *</Label>
+                  <Label>10. Barrio y ciudad *</Label>
                   <Input placeholder="Ej: Chapinero, Bogotá D.C." {...form.register('neighborhoodCity', { required: true })} />
                 </div>
 
@@ -788,36 +793,35 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label>12. Correo Electrónico Personal *</Label>
+                  <Label>12. Correo electrónico personal *</Label>
                   <Input type="email" placeholder="Ej: tu.correo@gmail.com" {...form.register('personalEmail', { required: true })} />
                 </div>
 
-                <div className="space-y-2 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                <div className="space-y-2 rounded-md border border-zinc-200/80 p-3.5 dark:border-zinc-800/80">
                   <div className="flex items-center justify-between">
-                    <Label>19. ¿Tiene Hijos?</Label>
+                    <Label>19. ¿Tiene hijos?</Label>
                     <input
                       type="checkbox"
-                      className="h-4 w-4 accent-blue-600"
+                      className="h-4 w-4 accent-zinc-900 dark:accent-zinc-100"
                       {...form.register('hasChildren')}
                     />
                   </div>
                   {watchedValues.hasChildren && (
-                    <div className="pt-2">
+                    <div className="pt-2 space-y-1">
                       <Label>Cantidad de hijos</Label>
                       <Input
                         type="number"
                         min={1}
                         max={20}
-                        className="mt-1"
                         {...form.register('childrenCount', { valueAsNumber: true })}
                       />
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-2 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-                  <Label>21. Talla de Camiseta (Dotación) *</Label>
-                  <div className="grid grid-cols-6 gap-2 pt-1">
+                <div className="space-y-2 rounded-md border border-zinc-200/80 p-3.5 dark:border-zinc-800/80">
+                  <Label>21. Talla de camiseta (dotación) *</Label>
+                  <div className="grid grid-cols-6 gap-1.5 pt-1">
                     {SHIRT_SIZES.map((size) => {
                       const active = watchedValues.shirtSize === size;
                       return (
@@ -825,10 +829,10 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                           key={size}
                           type="button"
                           onClick={() => form.setValue('shirtSize', size)}
-                          className={`h-10 rounded-lg border text-sm font-bold transition-all cursor-pointer ${
+                          className={`h-9 rounded-md border text-xs font-medium transition-colors cursor-pointer ${
                             active
-                              ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                              : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200'
+                              ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                              : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300'
                           }`}
                         >
                           {size}
@@ -845,7 +849,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
               <div className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>14. Nivel de Escolaridad *</Label>
+                    <Label>14. Nivel de escolaridad *</Label>
                     <Select {...form.register('educationLevel')}>
                       {EDUCATION_LEVELS.map((lvl) => (
                         <option key={lvl} value={lvl}>
@@ -855,7 +859,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>15. Último Título Académico *</Label>
+                    <Label>15. Último título académico *</Label>
                     <Input
                       placeholder="Ej: Ingeniería de Sistemas / Administración"
                       {...form.register('lastAcademicTitle', { required: true })}
@@ -873,10 +877,12 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                     const uploaded = documents.find((d) => d.documentType === slot.type);
                     return (
                       <div key={slot.type} className="space-y-2.5">
-                        <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 p-5 text-center hover:border-blue-500 cursor-pointer dark:border-slate-700">
-                          <FileUp className="h-6 w-6 text-blue-600" />
-                          <span className="text-sm font-medium">{slot.label}</span>
-                          <span className="text-xs text-slate-500">
+                        <label className="flex flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-zinc-300 p-5 text-center transition-colors hover:border-zinc-500 cursor-pointer dark:border-zinc-700 dark:hover:border-zinc-500">
+                          <FileUp className="h-5 w-5 text-zinc-500" />
+                          <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                            {slot.label}
+                          </span>
+                          <span className="text-[11px] text-zinc-500">
                             {uploadingDoc === slot.type
                               ? 'Subiendo a Supabase Storage (alliance)...'
                               : uploaded
@@ -907,46 +913,48 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                     <Input placeholder="Ej: Sura EPS / Sanitas" {...form.register('eps', { required: true })} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>17. Fondo de Pensión (Opcional)</Label>
+                    <Label>17. Fondo de pensión (opcional)</Label>
                     <Input placeholder="Opcional · Ej: Porvenir / Protección" {...form.register('pensionFund')} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>18. Fondo de Cesantías (Opcional)</Label>
+                    <Label>18. Fondo de cesantías (opcional)</Label>
                     <Input placeholder="Opcional · Ej: Porvenir / FNA" {...form.register('severanceFund')} />
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-200 p-4 space-y-4 dark:border-slate-800">
-                  <div className="flex items-center justify-between">
+                <div className="rounded-md border border-zinc-200/80 p-4 space-y-3.5 dark:border-zinc-800/80">
+                  <div className="flex items-center justify-between gap-4">
                     <div>
                       <Label>20. ¿Cuenta con cuenta activa en Bancolombia?</Label>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Si respondes Sí, adjunta tu certificación bancaria para dispersión de nómina.
+                      <p className="text-xs text-zinc-500 mt-0.5">
+                        Si respondes Sí, adjunta tu certificación bancaria para nómina.
                       </p>
                     </div>
                     <input
                       type="checkbox"
-                      className="h-5 w-5 accent-blue-600"
+                      className="h-4 w-4 accent-zinc-900 dark:accent-zinc-100"
                       {...form.register('hasBancolombiaAccount')}
                     />
                   </div>
 
                   {watchedValues.hasBancolombiaAccount && (
                     <div className="space-y-2.5">
-                      <label className="flex items-center justify-between rounded-lg border-2 border-dashed border-blue-300 bg-blue-50/50 p-4 cursor-pointer dark:border-blue-800 dark:bg-blue-950/30">
+                      <label className="flex items-center justify-between rounded-md border border-dashed border-zinc-300 bg-zinc-50/60 p-3.5 transition-colors hover:border-zinc-500 cursor-pointer dark:border-zinc-700 dark:bg-zinc-950/60">
                         <div className="flex items-center gap-3">
-                          <FileUp className="h-5 w-5 text-blue-600" />
-                          <div className="text-sm">
-                            <span className="font-medium block">Certificación Bancaria Bancolombia (PDF)</span>
-                            <span className="text-xs text-slate-500">
+                          <FileUp className="h-4 w-4 text-zinc-500" />
+                          <div className="text-xs">
+                            <span className="font-medium block">
+                              Certificación Bancaria Bancolombia (PDF)
+                            </span>
+                            <span className="text-zinc-500">
                               {uploadingDoc === 'BANK_CERTIFICATE'
                                 ? 'Subiendo a Supabase Storage (alliance)...'
-                                : documents.find((d) => d.documentType === 'BANK_CERTIFICATE')?.fileName ??
-                                  'Haz clic para seleccionar el archivo'}
+                                : documents.find((d) => d.documentType === 'BANK_CERTIFICATE')
+                                    ?.fileName ?? 'Haz clic para seleccionar archivo'}
                             </span>
                           </div>
                         </div>
-                        <Badge variant="default">Requerido</Badge>
+                        <Badge variant="outline">Requerido</Badge>
                         <input
                           type="file"
                           accept="application/pdf,image/*"
@@ -965,10 +973,10 @@ export function PreOnboardingWizard({ token }: { token: string }) {
 
             {/* PASO 5 */}
             {step === 5 && (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-1.5">
-                    <Label>22. Contacto de Emergencia: Nombre *</Label>
+                    <Label>22. Contacto de emergencia *</Label>
                     <Input placeholder="Nombre completo" {...form.register('emergencyContactName', { required: true })} />
                   </div>
                   <div className="space-y-1.5">
@@ -976,40 +984,40 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                     <Input placeholder="Ej: Madre / Esposo(a)" {...form.register('emergencyContactRelationship', { required: true })} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>24. Celular de Emergencia *</Label>
+                    <Label>24. Celular de emergencia *</Label>
                     <Input placeholder="+57 311 ..." {...form.register('emergencyContactPhone', { required: true })} />
                   </div>
                 </div>
 
                 {/* Caja Legal Ley 1581 */}
-                <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 space-y-3 dark:border-blue-900 dark:bg-blue-950/20">
+                <div className="rounded-md border border-zinc-200/80 bg-zinc-50/60 p-4 space-y-3 dark:border-zinc-800/80 dark:bg-zinc-950/60">
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-sm font-semibold text-blue-800 dark:text-blue-300">
-                      <ShieldCheck className="h-4 w-4" />
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                      <ShieldCheck className="h-4 w-4 text-zinc-500" />
                       Cumplimiento Ley 1581 de 2012 (Habeas Data)
                     </span>
                     <Badge variant="outline">{HABEAS_DATA_POLICY_VERSION}</Badge>
                   </div>
-                  <div className="max-h-36 overflow-y-auto rounded-lg bg-white p-3 text-xs leading-relaxed text-slate-600 whitespace-pre-line border border-slate-200 dark:bg-slate-950 dark:text-slate-300 dark:border-slate-800">
+                  <div className="max-h-32 overflow-y-auto rounded border border-zinc-200/80 bg-white p-3 text-xs leading-relaxed text-zinc-600 whitespace-pre-line dark:border-zinc-800/80 dark:bg-[#0f0f12] dark:text-zinc-300">
                     {HABEAS_DATA_POLICY_TEXT}
                   </div>
-                  <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+                  <label className="flex items-start gap-2.5 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
                     <input
                       type="checkbox"
-                      className="mt-1 h-4 w-4 accent-blue-600"
+                      className="mt-0.5 h-4 w-4 accent-zinc-900 dark:accent-zinc-100"
                       {...form.register('habeasDataAccepted')}
                     />
                     <span>
-                      Acepto de manera expresa la Política de Tratamiento de Datos Personales bajo la{' '}
-                      <strong>Ley 1581 de 2012</strong> y autorizo la captura de mi firma electrónica con
-                      sello SHA-256, IP y marca de tiempo.
+                      Acepto la Política de Tratamiento de Datos Personales bajo la{' '}
+                      <strong>Ley 1581 de 2012</strong> y autorizo la captura de mi firma electrónica
+                      con sello SHA-256, IP y marca de tiempo.
                     </span>
                   </label>
                 </div>
 
                 {/* Canvas Firma Digital */}
-                <div className="space-y-2">
-                  <Label>Firma Electrónica Manuscrita *</Label>
+                <div className="space-y-1.5">
+                  <Label>Firma electrónica manuscrita *</Label>
                   <SignaturePad
                     value={watchedValues.signatureDataUrl}
                     onChange={(url) => form.setValue('signatureDataUrl', url)}
@@ -1017,15 +1025,15 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                 </div>
 
                 {/* Validación OTP */}
-                <div className="rounded-xl border border-slate-200 p-4 space-y-3 dark:border-slate-800">
+                <div className="rounded-md border border-zinc-200/80 p-4 space-y-3 dark:border-zinc-800/80">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
                       <Label className="flex items-center gap-1.5">
-                        <KeyRound className="h-3.5 w-3.5 text-blue-600" />
+                        <KeyRound className="h-3.5 w-3.5 text-zinc-500" />
                         Verificación OTP (6 dígitos)
                       </Label>
-                      <p className="text-xs text-slate-500">
-                        Solicita un código temporal a tu correo ({watchedValues.personalEmail || 'pendiente'}) para sellar la firma.
+                      <p className="text-xs text-zinc-500 mt-0.5">
+                        Solicita un código temporal a {watchedValues.personalEmail || 'tu correo'}.
                       </p>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={handleSendOtp}>
@@ -1034,11 +1042,9 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                   </div>
 
                   {otpSentInfo?.sent && (
-                    <div className="rounded-lg bg-emerald-50 p-2.5 text-xs text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                    <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
                       OTP enviado correctamente.{' '}
-                      {otpSentInfo.devOtp && (
-                        <strong>Código DEV: {otpSentInfo.devOtp}</strong>
-                      )}
+                      {otpSentInfo.devOtp && <strong>Código DEV: {otpSentInfo.devOtp}</strong>}
                     </div>
                   )}
 
@@ -1050,7 +1056,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                 </div>
 
                 {submitError && (
-                  <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                  <div className="rounded-md bg-rose-50 px-3 py-2.5 text-xs text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
                     {submitError}
                   </div>
                 )}
@@ -1058,8 +1064,8 @@ export function PreOnboardingWizard({ token }: { token: string }) {
             )}
 
             {stepErrors.length > 0 && (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 space-y-1 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-200">
-                <p className="font-semibold">
+              <div className="rounded-md border border-rose-200 bg-rose-50/70 p-3 text-xs text-rose-800 space-y-1 dark:border-rose-900/70 dark:bg-rose-950/50 dark:text-rose-200">
+                <p className="font-medium">
                   Completa los siguientes campos obligatorios para continuar:
                 </p>
                 <ul className="list-disc pl-4 space-y-0.5">
@@ -1071,10 +1077,11 @@ export function PreOnboardingWizard({ token }: { token: string }) {
             )}
 
             {/* Navegación entre pasos */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between pt-4 border-t border-zinc-200/80 dark:border-zinc-800/80">
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
                 disabled={step === 1}
                 onClick={() => {
                   setStepErrors([]);
@@ -1086,18 +1093,18 @@ export function PreOnboardingWizard({ token }: { token: string }) {
               </Button>
 
               {step < 5 ? (
-                <Button type="button" onClick={handleNextStep}>
-                  Siguiente Paso
+                <Button type="button" size="sm" onClick={handleNextStep}>
+                  Siguiente
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               ) : (
-                <Button type="submit" variant="success" disabled={submitting}>
+                <Button type="submit" variant="success" size="sm" disabled={submitting}>
                   <ShieldCheck className="h-4 w-4" />
                   {submitting
-                    ? 'Firmando y enviando...'
+                    ? 'Enviando...'
                     : isCorrectionMode
-                      ? 'Guardar Corrección y Reenviar a TH'
-                      : 'Firmar Ley 1581 y Finalizar Pre-Ingreso'}
+                      ? 'Guardar corrección y reenviar'
+                      : 'Firmar y finalizar'}
                 </Button>
               )}
             </div>

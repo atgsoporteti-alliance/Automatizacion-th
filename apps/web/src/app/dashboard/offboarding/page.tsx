@@ -92,20 +92,20 @@ export default function OffboardingDashboardPage() {
     if (status === 'APPROVED') {
       return (
         <Badge variant="success">
-          <CheckCircle2 className="h-3.5 w-3.5" /> Aprobado
+          <CheckCircle2 className="h-3 w-3" /> Aprobado
         </Badge>
       );
     }
     if (status === 'REJECTED_WITH_DEBT') {
       return (
         <Badge variant="danger">
-          <XCircle className="h-3.5 w-3.5" /> Rechazado con Pendiente
+          <XCircle className="h-3 w-3" /> Con pendiente
         </Badge>
       );
     }
     return (
       <Badge variant="warning">
-        <Clock className="h-3.5 w-3.5" /> Pendiente
+        <Clock className="h-3 w-3" /> Pendiente
       </Badge>
     );
   };
@@ -114,24 +114,22 @@ export default function OffboardingDashboardPage() {
     <AppShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Gestión de Offboarding y Paz y Salvo Digital
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Control de bajas programadas (corte 23:59), retiros críticos inmediatos y semáforo multi-área.
+          <h1 className="text-xl font-semibold tracking-tight">Offboarding &amp; Paz y Salvo</h1>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Bajas programadas (corte 23:59), retiros críticos inmediatos y semáforo multi-área.
           </p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-12">
           {/* Formulario disparo Offboarding */}
           <Card className="lg:col-span-4 h-fit">
-            <CardHeader>
+            <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2">
-                <UserMinus className="h-5 w-5 text-rose-600" />
-                Iniciar Proceso de Retiro
+                <UserMinus className="h-4 w-4 text-zinc-500" />
+                Iniciar retiro
               </CardTitle>
               <CardDescription>
-                Genera automáticamente los 4 registros de Paz y Salvo (IT, Finanzas, Activo Fijo y Jefe Directo).
+                Genera los 4 Paz y Salvo (IT, Finanzas, Activo Fijo y Jefe).
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -148,39 +146,39 @@ export default function OffboardingDashboardPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Tipo de Urgencia</Label>
+                <Label>Urgencia</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setUrgency('STANDARD')}
-                    className={`rounded-lg border p-2.5 text-left text-xs cursor-pointer ${
+                    className={`rounded-md border p-2.5 text-left text-xs transition-colors cursor-pointer ${
                       urgency === 'STANDARD'
-                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/50'
-                        : 'border-slate-200 dark:border-slate-800'
+                        ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-900'
+                        : 'border-zinc-200/80 hover:border-zinc-400 dark:border-zinc-800/80'
                     }`}
                   >
-                    <span className="font-bold block">STANDARD</span>
-                    <span className="text-slate-500">Corte Cron 23:59</span>
+                    <span className="font-semibold block">STANDARD</span>
+                    <span className="text-[11px] text-zinc-500">Corte 23:59</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setUrgency('CRITICAL_IMMEDIATE')}
-                    className={`rounded-lg border p-2.5 text-left text-xs cursor-pointer ${
+                    className={`rounded-md border p-2.5 text-left text-xs transition-colors cursor-pointer ${
                       urgency === 'CRITICAL_IMMEDIATE'
-                        ? 'border-rose-600 bg-rose-50 dark:bg-rose-950/50'
-                        : 'border-slate-200 dark:border-slate-800'
+                        ? 'border-rose-500 bg-rose-50/70 dark:border-rose-500 dark:bg-rose-950/40'
+                        : 'border-zinc-200/80 hover:border-zinc-400 dark:border-zinc-800/80'
                     }`}
                   >
-                    <span className="font-bold block text-rose-700 dark:text-rose-400">
-                      CRITICAL_IMMEDIATE
+                    <span className="font-semibold block text-rose-700 dark:text-rose-400">
+                      CRÍTICO
                     </span>
-                    <span className="text-slate-500">Revocación instantánea</span>
+                    <span className="text-[11px] text-zinc-500">Inmediato</span>
                   </button>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label>Fecha de Retiro</Label>
+                <Label>Fecha de retiro</Label>
                 <Input
                   type="date"
                   value={terminationDate}
@@ -191,14 +189,14 @@ export default function OffboardingDashboardPage() {
               <div className="space-y-1.5">
                 <Label>Motivo / Observaciones</Label>
                 <Textarea
-                  placeholder="Ej: Renuncia voluntaria / Terminación unilateral..."
+                  placeholder="Ej: Renuncia voluntaria..."
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                 />
               </div>
 
               {feedback && (
-                <div className="rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                <div className="rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
                   {feedback}
                 </div>
               )}
@@ -212,12 +210,12 @@ export default function OffboardingDashboardPage() {
                 {urgency === 'CRITICAL_IMMEDIATE' ? (
                   <>
                     <AlertOctagon className="h-4 w-4" />
-                    Disparar Baja Crítica Inmediata
+                    Disparar baja crítica
                   </>
                 ) : (
                   <>
                     <ShieldAlert className="h-4 w-4" />
-                    Programar Baja y Crear Paz y Salvo
+                    Programar baja
                   </>
                 )}
               </Button>
@@ -225,10 +223,10 @@ export default function OffboardingDashboardPage() {
           </Card>
 
           {/* Semáforo Multi-Área */}
-          <div className="lg:col-span-8 space-y-5">
+          <div className="lg:col-span-8 space-y-4">
             {isLoading && (
               <Card>
-                <CardContent className="p-8 text-center text-sm text-slate-500">
+                <CardContent className="p-8 text-center text-xs text-zinc-500">
                   Cargando procesos de Offboarding...
                 </CardContent>
               </Card>
@@ -240,22 +238,22 @@ export default function OffboardingDashboardPage() {
 
               return (
                 <Card key={wf.id}>
-                  <CardHeader>
+                  <CardHeader className="pb-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <CardTitle className="text-lg">{wf.employee.fullName}</CardTitle>
+                        <CardTitle className="text-base">{wf.employee.fullName}</CardTitle>
                         <CardDescription>
-                          {wf.employee.jobTitle ?? 'Colaborador'} · Área:{' '}
-                          <strong>{wf.employee.operationalArea ?? 'N/A'}</strong> · Ticket:{' '}
+                          {wf.employee.jobTitle ?? 'Colaborador'} ·{' '}
+                          {wf.employee.operationalArea ?? 'N/A'} · Ticket:{' '}
                           <code>{wf.helpdeskTicketId ?? 'Programado 23:59'}</code>
                         </CardDescription>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5">
                         <Badge variant={wf.urgency === 'CRITICAL_IMMEDIATE' ? 'danger' : 'secondary'}>
                           {wf.urgency}
                         </Badge>
                         <Badge variant={approvedCount === 4 ? 'success' : 'warning'}>
-                          Paz y Salvo: {approvedCount}/4
+                          {approvedCount}/4
                         </Badge>
                       </div>
                     </div>
@@ -264,21 +262,21 @@ export default function OffboardingDashboardPage() {
                     {clearances.map((cl: ClearanceRecord) => (
                       <div
                         key={cl.id}
-                        className="rounded-xl border border-slate-200 p-3.5 space-y-3 dark:border-slate-800"
+                        className="rounded-md border border-zinc-200/80 p-3 space-y-2.5 dark:border-zinc-800/80"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-xs font-bold leading-snug">
+                          <span className="text-xs font-medium leading-snug">
                             {CLEARANCE_DEPARTMENT_LABELS[cl.department]}
                           </span>
                           {renderStatusBadge(cl.status)}
                         </div>
                         {cl.notes && (
-                          <p className="text-xs text-slate-500 dark:text-slate-400">{cl.notes}</p>
+                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{cl.notes}</p>
                         )}
-                        <div className="flex gap-2">
+                        <div className="flex gap-1.5">
                           <Button
                             size="sm"
-                            variant="success"
+                            variant="outline"
                             disabled={cl.status === 'APPROVED' || clearanceMutation.isPending}
                             onClick={() =>
                               clearanceMutation.mutate({
@@ -292,7 +290,7 @@ export default function OffboardingDashboardPage() {
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
                             disabled={clearanceMutation.isPending}
                             onClick={() =>
                               clearanceMutation.mutate({
@@ -302,7 +300,7 @@ export default function OffboardingDashboardPage() {
                               })
                             }
                           >
-                            Reportar Pendiente
+                            Reportar pendiente
                           </Button>
                         </div>
                       </div>

@@ -22,7 +22,7 @@ export function SignaturePad({ value, onChange }: SignaturePadProps) {
     ctx.lineWidth = 2.2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#0f172a';
+    ctx.strokeStyle = '#09090b';
   }, []);
 
   const getCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -78,7 +78,7 @@ export function SignaturePad({ value, onChange }: SignaturePadProps) {
 
   return (
     <div className="space-y-2">
-      <div className="relative overflow-hidden rounded-xl border-2 border-dashed border-slate-300 bg-white dark:border-slate-700">
+      <div className="relative overflow-hidden rounded-md border border-dashed border-zinc-300 bg-white dark:border-zinc-700">
         <canvas
           ref={canvasRef}
           width={640}
@@ -87,22 +87,22 @@ export function SignaturePad({ value, onChange }: SignaturePadProps) {
           onPointerMove={draw}
           onPointerUp={endDrawing}
           onPointerLeave={endDrawing}
-          className="h-44 w-full touch-none cursor-crosshair"
+          className="h-40 w-full touch-none cursor-crosshair"
         />
         {!value && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-xs text-slate-400">
-            <PenTool className="h-4 w-4" />
-            Firme aquí con el cursor o dedo (Firma electrónica Ley 1581)
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-xs text-zinc-400">
+            <PenTool className="h-3.5 w-3.5" />
+            Firme aquí con el cursor o dedo
           </div>
         )}
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-500">
-          {value ? 'Firma capturada correctamente.' : 'Pendiente de firma manuscrita digital.'}
+        <span className="text-[11px] text-zinc-500">
+          {value ? 'Firma capturada correctamente.' : 'Pendiente de firma manuscrita.'}
         </span>
-        <Button type="button" variant="outline" size="sm" onClick={clear}>
+        <Button type="button" variant="ghost" size="sm" onClick={clear}>
           <Eraser className="h-3.5 w-3.5" />
-          Limpiar firma
+          Limpiar
         </Button>
       </div>
     </div>

@@ -59,64 +59,59 @@ export default function AdminUsersPage() {
     <AppShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Gestión de Usuarios y Roles (RBAC)
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Exclusivo para <strong>SUPER_ADMIN</strong>. Asigna roles, área operativa y estado activo.
+          <h1 className="text-xl font-semibold tracking-tight">Usuarios y Roles (RBAC)</h1>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Exclusivo para <strong>SUPER_ADMIN</strong>. Cada ajuste queda auditado en{' '}
+            <code>audit_logs</code>.
           </p>
         </div>
 
         {error && (
-          <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-200 flex items-center gap-2">
+          <div className="rounded-md bg-rose-50 px-3.5 py-2.5 text-xs text-rose-700 dark:bg-rose-950/60 dark:text-rose-200 flex items-center gap-2">
             <ShieldAlert className="h-4 w-4 shrink-0" />
             <span>{error instanceof Error ? error.message : 'Acceso restringido a SUPER_ADMIN.'}</span>
           </div>
         )}
 
         {message && (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200">
+          <div className="rounded-md bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
             {message}
           </div>
         )}
 
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2">
-              <UserCog className="h-4 w-4" />
-              Cuentas Corporativas ({users.length})
+              <UserCog className="h-4 w-4 text-zinc-500" />
+              Cuentas corporativas ({users.length})
             </CardTitle>
-            <CardDescription>
-              Cada cambio queda registrado automáticamente en <code>audit_logs</code>.
-            </CardDescription>
+            <CardDescription>Asigna rol, área operativa y estado.</CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             {isLoading ? (
-              <p className="text-sm text-slate-500">Cargando usuarios...</p>
+              <p className="text-xs text-zinc-500">Cargando usuarios...</p>
             ) : (
               <table className="w-full text-left text-xs">
-                <thead className="border-b border-slate-200 text-[11px] uppercase text-slate-500 dark:border-slate-800">
+                <thead className="border-b border-zinc-200/80 text-[11px] font-medium text-zinc-500 dark:border-zinc-800/80">
                   <tr>
                     <th className="py-2.5 pr-4">Usuario</th>
                     <th className="py-2.5 pr-4">Rol RBAC</th>
-                    <th className="py-2.5 pr-4">Área Operativa</th>
+                    <th className="py-2.5 pr-4">Área</th>
                     <th className="py-2.5 pr-4">Depto Paz y Salvo</th>
                     <th className="py-2.5 pr-4">Estado</th>
                     <th className="py-2.5">Acción</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                <tbody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
                   {users.map((u: AuthenticatedUserProfile) => (
                     <tr key={u.id}>
                       <td className="py-3 pr-4">
-                        <p className="font-semibold text-slate-900 dark:text-slate-100">
-                          {u.fullName}
-                        </p>
-                        <p className="text-slate-500">{u.email}</p>
+                        <p className="font-medium text-zinc-950 dark:text-zinc-100">{u.fullName}</p>
+                        <p className="text-zinc-500">{u.email}</p>
                       </td>
                       <td className="py-3 pr-4">
                         <Select
-                          className="h-8 text-xs min-w-[180px]"
+                          className="h-8 text-xs min-w-[170px]"
                           value={u.role}
                           onChange={(e) =>
                             updateMutation.mutate({
@@ -134,7 +129,7 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="py-3 pr-4">
                         <Select
-                          className="h-8 text-xs min-w-[120px]"
+                          className="h-8 text-xs min-w-[110px]"
                           value={u.operationalArea ?? ''}
                           onChange={(e) =>
                             updateMutation.mutate({
@@ -154,7 +149,7 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="py-3 pr-4">
                         <Select
-                          className="h-8 text-xs min-w-[130px]"
+                          className="h-8 text-xs min-w-[120px]"
                           value={u.clearanceDepartment ?? ''}
                           onChange={(e) =>
                             updateMutation.mutate({
@@ -181,7 +176,7 @@ export default function AdminUsersPage() {
                       <td className="py-3">
                         <Button
                           size="sm"
-                          variant={u.isActive ? 'outline' : 'success'}
+                          variant="outline"
                           onClick={() =>
                             updateMutation.mutate({
                               id: u.id,

@@ -13,25 +13,21 @@ export function CandidateShell({ children }: { children: React.ReactNode }) {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f6f7f9] text-slate-900 dark:bg-[#0b0f17] dark:text-slate-100">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800/80 dark:bg-[#0e131e]/95">
-        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
-              <Building2 className="h-4 w-4" />
+    <div className="min-h-screen flex flex-col bg-[#fafafa] text-zinc-950 dark:bg-[#09090b] dark:text-zinc-100">
+      <header className="sticky top-0 z-20 border-b border-zinc-200/80 bg-[#fafafa]/85 backdrop-blur-md dark:border-zinc-800/80 dark:bg-[#09090b]/85">
+        <div className="mx-auto flex h-12 max-w-3xl items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">
+              <Building2 className="h-3.5 w-3.5" />
             </div>
-            <div className="leading-tight">
-              <span className="block text-sm font-semibold tracking-tight">Alliance HCM</span>
-              <span className="block text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Portal de Pre-Ingreso
-              </span>
-            </div>
+            <span className="text-sm font-semibold tracking-tight">Alliance HCM</span>
+            <span className="hidden sm:inline text-xs text-zinc-400">· Pre-Ingreso</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <Badge variant="success" className="hidden sm:inline-flex">
-              <Lock className="h-3 w-3" />
-              Enlace Seguro · Ley 1581
+            <Badge variant="outline" className="hidden sm:inline-flex">
+              <Lock className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+              Ley 1581
             </Badge>
             <Button
               variant="ghost"
@@ -45,10 +41,10 @@ export function CandidateShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:px-6">{children}</main>
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6">{children}</main>
 
-      <footer className="border-t border-slate-200 py-4 text-center text-[11px] text-slate-500 dark:border-slate-800/80 dark:text-slate-400">
-        Acceso exclusivo para diligenciamiento de ingreso · Protección de Datos Ley 1581 de 2012
+      <footer className="border-t border-zinc-200/80 py-4 text-center text-[11px] text-zinc-400 dark:border-zinc-800/80 dark:text-zinc-500">
+        Portal exclusivo de pre-ingreso · Protección de datos Ley 1581 de 2012
       </footer>
     </div>
   );
