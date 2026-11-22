@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "build": "node -e \"require('child_process').execSync('next build', {stdio:'inherit', env:{...process.env, NODE_ENV:'production'}})\"",
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit"
   },
