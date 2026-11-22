@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Download,
+  Eye,
   FileUp,
   KeyRound,
   RefreshCw,
@@ -26,6 +28,7 @@ import {
   UploadedDocumentInput,
 } from '@alliance-hcm/shared';
 import { apiClient, DuplicateCheckResponse } from '@/lib/api';
+import { DocumentPreviewModal } from './document-preview-modal';
 import { SignaturePad } from './signature-pad';
 import {
   Badge,
@@ -94,6 +97,12 @@ export function PreOnboardingWizard({ token }: { token: string }) {
   const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheckResponse | null>(null);
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
   const [documents, setDocuments] = useState<UploadedDocumentInput[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+  const [activePreview, setActivePreview] = useState<{
+    fileName: string;
+    mimeType: string;
+    objectUrl: string;
+  } | null>(null);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
   const [otpSentInfo, setOtpSentInfo] = useState<{ sent: boolean; devOtp?: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -225,49 +234,33 @@ export function PreOnboardingWizard({ token }: { token: string }) {
   ) => {
     if (!file) return;
     setUploadingDoc(documentType);
+    const localObjectUrl = URL.createObjectURL(file);
+    setPreviewUrls((prev) => ({ ...prev, [documentType]: localObjectUrl }));
+
     try {
-      const presigned = await apiClient.createPresignedUrl({
-        fileName: file.name,
-        contentType: file.type || 'application/pdf',
+      const uploaded = await apiClient.uploadPreOnboardingFile(
+        file,
         documentType,
-        nationalId: watchedValues.nationalId || 'pending',
-      });
-
-      // Intentar subida directa a MinIO; si MinIO no está corriendo en local, conservamos la metadata para pruebas
-      try {
-        await fetch(presigned.uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': file.type || 'application/pdf' },
-          body: file,
-        });
-      } catch {
-        // MinIO offline fallback
-      }
+        watchedValues.nationalId || undefined,
+      );
 
       setDocuments((prev) => [
         ...prev.filter((d) => d.documentType !== documentType),
         {
           documentType,
-          fileName: file.name,
-          mimeType: file.type || 'application/pdf',
-          fileSize: file.size,
-          s3Key: presigned.s3Key,
-          s3Url: presigned.publicUrl,
+          fileName: uploaded.fileName,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          s3Key: uploaded.s3Key,
+          s3Url: uploaded.s3Url,
         },
       ]);
-    } catch {
-      // Fallback local metadata si la API está desconectada
-      setDocuments((prev) => [
-        ...prev.filter((d) => d.documentType !== documentType),
-        {
-          documentType,
-          fileName: file.name,
-          mimeType: file.type || 'application/pdf',
-          fileSize: file.size,
-          s3Key: `local/${documentType}/${file.name}`,
-          s3Url: `http://localhost:9000/alliance-hcm-docs/local/${file.name}`,
-        },
-      ]);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : 'Error subiendo el archivo al bucket de Supabase.',
+      );
     } finally {
       setUploadingDoc(null);
     }
@@ -624,27 +617,54 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                     ] as const
                   ).map((slot) => {
                     const uploaded = documents.find((d) => d.documentType === slot.type);
+                    const localUrl = previewUrls[slot.type];
                     return (
-                      <label
-                        key={slot.type}
-                        className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center hover:border-blue-500 cursor-pointer dark:border-slate-700"
-                      >
-                        <FileUp className="h-7 w-7 text-blue-600" />
-                        <span className="text-sm font-medium">{slot.label}</span>
-                        <span className="text-xs text-slate-500">
-                          {uploadingDoc === slot.type
-                            ? 'Subiendo a MinIO/S3...'
-                            : uploaded
-                              ? `Cargado: ${uploaded.fileName}`
-                              : 'Haz clic para adjuntar PDF (máx. 5 MB)'}
-                        </span>
-                        <input
-                          type="file"
-                          accept="application/pdf,image/*"
-                          className="hidden"
-                          onChange={(e) => handleFileUpload(e.target.files?.[0] ?? null, slot.type)}
-                        />
-                      </label>
+                      <div key={slot.type} className="space-y-2">
+                        <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center hover:border-blue-500 cursor-pointer dark:border-slate-700">
+                          <FileUp className="h-7 w-7 text-blue-600" />
+                          <span className="text-sm font-medium">{slot.label}</span>
+                          <span className="text-xs text-slate-500">
+                            {uploadingDoc === slot.type
+                              ? 'Subiendo a Supabase Storage (alliance)...'
+                              : uploaded
+                                ? `Cargado: ${uploaded.fileName}`
+                                : 'Haz clic para adjuntar PDF o imagen (máx. 10 MB)'}
+                          </span>
+                          <input
+                            type="file"
+                            accept="application/pdf,image/*"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(e.target.files?.[0] ?? null, slot.type)}
+                          />
+                        </label>
+                        {uploaded && localUrl && (
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                setActivePreview({
+                                  fileName: uploaded.fileName,
+                                  mimeType: uploaded.mimeType,
+                                  objectUrl: localUrl,
+                                })
+                              }
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Previsualizar
+                            </Button>
+                            <a
+                              href={localUrl}
+                              download={uploaded.fileName}
+                              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Descargar
+                            </a>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -685,27 +705,65 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                   </div>
 
                   {watchedValues.hasBancolombiaAccount && (
-                    <label className="flex items-center justify-between rounded-lg border-2 border-dashed border-blue-300 bg-blue-50/50 p-4 cursor-pointer dark:border-blue-800 dark:bg-blue-950/30">
-                      <div className="flex items-center gap-3">
-                        <FileUp className="h-5 w-5 text-blue-600" />
-                        <div className="text-sm">
-                          <span className="font-medium block">Certificación Bancaria Bancolombia (PDF)</span>
-                          <span className="text-xs text-slate-500">
-                            {documents.find((d) => d.documentType === 'BANK_CERTIFICATE')?.fileName ??
-                              'Haz clic para seleccionar el archivo'}
-                          </span>
+                    <div className="space-y-2">
+                      <label className="flex items-center justify-between rounded-lg border-2 border-dashed border-blue-300 bg-blue-50/50 p-4 cursor-pointer dark:border-blue-800 dark:bg-blue-950/30">
+                        <div className="flex items-center gap-3">
+                          <FileUp className="h-5 w-5 text-blue-600" />
+                          <div className="text-sm">
+                            <span className="font-medium block">Certificación Bancaria Bancolombia (PDF)</span>
+                            <span className="text-xs text-slate-500">
+                              {uploadingDoc === 'BANK_CERTIFICATE'
+                                ? 'Subiendo a Supabase Storage (alliance)...'
+                                : documents.find((d) => d.documentType === 'BANK_CERTIFICATE')?.fileName ??
+                                  'Haz clic para seleccionar el archivo'}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <Badge variant="default">Requerido</Badge>
-                      <input
-                        type="file"
-                        accept="application/pdf,image/*"
-                        className="hidden"
-                        onChange={(e) =>
-                          handleFileUpload(e.target.files?.[0] ?? null, 'BANK_CERTIFICATE')
-                        }
-                      />
-                    </label>
+                        <Badge variant="default">Requerido</Badge>
+                        <input
+                          type="file"
+                          accept="application/pdf,image/*"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleFileUpload(e.target.files?.[0] ?? null, 'BANK_CERTIFICATE')
+                          }
+                        />
+                      </label>
+                      {documents.find((d) => d.documentType === 'BANK_CERTIFICATE') &&
+                        previewUrls['BANK_CERTIFICATE'] && (
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const doc = documents.find(
+                                  (d) => d.documentType === 'BANK_CERTIFICATE',
+                                )!;
+                                setActivePreview({
+                                  fileName: doc.fileName,
+                                  mimeType: doc.mimeType,
+                                  objectUrl: previewUrls['BANK_CERTIFICATE'],
+                                });
+                              }}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Previsualizar
+                            </Button>
+                            <a
+                              href={previewUrls['BANK_CERTIFICATE']}
+                              download={
+                                documents.find((d) => d.documentType === 'BANK_CERTIFICATE')
+                                  ?.fileName
+                              }
+                              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Descargar
+                            </a>
+                          </div>
+                        )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -832,6 +890,14 @@ export function PreOnboardingWizard({ token }: { token: string }) {
           </CardContent>
         </Card>
       </form>
+
+      <DocumentPreviewModal
+        open={Boolean(activePreview)}
+        fileName={activePreview?.fileName ?? ''}
+        mimeType={activePreview?.mimeType ?? 'application/pdf'}
+        objectUrl={activePreview?.objectUrl ?? null}
+        onClose={() => setActivePreview(null)}
+      />
     </div>
   );
 }

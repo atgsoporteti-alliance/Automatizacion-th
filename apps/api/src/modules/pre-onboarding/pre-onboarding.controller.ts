@@ -1,5 +1,18 @@
-import { Body, Controller, Get, Headers, Ip, Param, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Ip,
+  Param,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { DocumentType } from '@alliance-hcm/shared';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PreOnboardingService } from './pre-onboarding.service';
@@ -10,6 +23,13 @@ import {
   SubmitPreOnboardingDto,
   VerifyOtpDto,
 } from './dto/pre-onboarding.dto';
+
+interface UploadedMulterFile {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
 
 @ApiTags('Pre-Onboarding')
 @Controller('pre-onboarding')
@@ -47,9 +67,45 @@ export class PreOnboardingController {
 
   @Post('presigned-url')
   @Public()
-  @ApiOperation({ summary: 'Generar URL prefirmada de MinIO/S3 para subir soportes PDF' })
+  @ApiOperation({ summary: 'Generar URL prefirmada de S3 para subir soportes PDF' })
   createPresignedUrl(@Body() dto: PresignedUrlDto) {
     return this.preOnboardingService.createPresignedUploadUrl(dto);
+  }
+
+  @Post('upload')
+  @Public()
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        documentType: { type: 'string', example: 'NATIONAL_ID_PDF' },
+        nationalId: { type: 'string', example: '1019234567' },
+      },
+    },
+  })
+  @ApiOperation({
+    summary: 'Subir soporte PDF o imagen directamente al bucket S3 de Supabase (alliance)',
+  })
+  uploadDocument(
+    @UploadedFile() file: UploadedMulterFile | undefined,
+    @Body('documentType') documentType?: DocumentType,
+    @Body('nationalId') nationalId?: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Debes adjuntar un archivo válido.');
+    }
+    return this.preOnboardingService.uploadDocumentFile({
+      file,
+      documentType: documentType ?? 'OTHER',
+      nationalId,
+    });
   }
 
   @Post('submit')

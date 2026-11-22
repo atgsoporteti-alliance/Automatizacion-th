@@ -9,7 +9,9 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  Download,
   ExternalLink,
+  Eye,
   FileCheck2,
   Link2,
   Send,
@@ -24,6 +26,7 @@ import {
   WORKFLOW_STEP_LABELS,
 } from '@alliance-hcm/shared';
 import { AppShell } from '@/components/app-shell';
+import { DocumentPreviewModal } from '@/components/document-preview-modal';
 import { apiClient, WorkflowRecord } from '@/lib/api';
 import {
   Badge,
@@ -54,6 +57,69 @@ export default function ThDashboardPage() {
     expiresIn: string;
   } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Modal de previsualización y descarga en la misma página
+  const [previewState, setPreviewState] = useState<{
+    open: boolean;
+    fileName: string;
+    mimeType: string;
+    objectUrl: string | null;
+    loading: boolean;
+    error: string | null;
+  }>({
+    open: false,
+    fileName: '',
+    mimeType: 'application/pdf',
+    objectUrl: null,
+    loading: false,
+    error: null,
+  });
+
+  const openDocumentPreview = async (path: string, fileName: string, mimeType = 'application/pdf') => {
+    setPreviewState({
+      open: true,
+      fileName,
+      mimeType,
+      objectUrl: null,
+      loading: true,
+      error: null,
+    });
+    try {
+      const res = await apiClient.fetchProtectedBlob(path);
+      setPreviewState({
+        open: true,
+        fileName,
+        mimeType: res.contentType || mimeType,
+        objectUrl: res.objectUrl,
+        loading: false,
+        error: null,
+      });
+    } catch (err) {
+      setPreviewState({
+        open: true,
+        fileName,
+        mimeType,
+        objectUrl: null,
+        loading: false,
+        error: err instanceof Error ? err.message : 'No se pudo cargar el documento.',
+      });
+    }
+  };
+
+  const downloadDocument = async (path: string, fileName: string) => {
+    try {
+      const res = await apiClient.fetchProtectedBlob(path);
+      const a = document.createElement('a');
+      a.href = res.objectUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(res.objectUrl), 10_000);
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'No se pudo descargar el documento.');
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -382,17 +448,99 @@ export default function ThDashboardPage() {
                       ))}
                     </div>
 
-                    {/* Badges de documentos verificados */}
-                    {selectedWorkflow.employee.documents && selectedWorkflow.employee.documents.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {selectedWorkflow.employee.documents.map((doc) => (
-                          <Badge key={doc.id} variant={doc.verified ? 'success' : 'warning'}>
-                            <CheckCircle2 className="h-3 w-3" />
-                            {doc.fileName}
-                          </Badge>
-                        ))}
+                    {/* Soportes documentales (Previsualización en página + Descarga desde Supabase S3) */}
+                    <div className="space-y-2.5 pt-2 border-t border-slate-200 dark:border-slate-800">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-semibold uppercase text-slate-500">
+                          Soportes en Supabase Storage (Bucket alliance)
+                        </span>
+                        {(selectedWorkflow.employee.consentSignatures?.length ?? 0) > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                void openDocumentPreview(
+                                  `/employees/${selectedWorkflow.employee.id}/signature/content`,
+                                  `firma-ley1581-${selectedWorkflow.employee.nationalId}.png`,
+                                  'image/png',
+                                )
+                              }
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Ver Firma Ley 1581
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                void downloadDocument(
+                                  `/employees/${selectedWorkflow.employee.id}/signature/content?download=1`,
+                                  `firma-ley1581-${selectedWorkflow.employee.nationalId}.png`,
+                                )
+                              }
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Descargar Firma
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                    )}
+
+                      {selectedWorkflow.employee.documents &&
+                      selectedWorkflow.employee.documents.length > 0 ? (
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {selectedWorkflow.employee.documents.map((doc) => (
+                            <div
+                              key={doc.id}
+                              className="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 p-2.5 text-xs dark:border-slate-800 dark:bg-slate-950"
+                            >
+                              <div className="min-w-0">
+                                <p className="font-semibold truncate">{doc.fileName}</p>
+                                <p className="text-[11px] text-slate-500">{doc.documentType}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    void openDocumentPreview(
+                                      `/employees/documents/${doc.id}/content`,
+                                      doc.fileName,
+                                      doc.mimeType || 'application/pdf',
+                                    )
+                                  }
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                  Ver
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() =>
+                                    void downloadDocument(
+                                      `/employees/documents/${doc.id}/content?download=1`,
+                                      doc.fileName,
+                                    )
+                                  }
+                                  title="Descargar archivo"
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          No hay documentos adjuntos registrados todavía.
+                        </p>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -525,6 +673,21 @@ export default function ThDashboardPage() {
           </div>
         </div>
       </div>
+
+      <DocumentPreviewModal
+        open={previewState.open}
+        fileName={previewState.fileName}
+        mimeType={previewState.mimeType}
+        objectUrl={previewState.objectUrl}
+        loading={previewState.loading}
+        error={previewState.error}
+        onClose={() => {
+          if (previewState.objectUrl) {
+            URL.revokeObjectURL(previewState.objectUrl);
+          }
+          setPreviewState((prev) => ({ ...prev, open: false, objectUrl: null }));
+        }}
+      />
     </AppShell>
   );
 }

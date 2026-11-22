@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import {
   AuthenticatedUserProfile,
   EmployeeStatus,
@@ -44,6 +45,43 @@ export class EmployeesController {
     @Query('search') search?: string,
   ) {
     return this.employeesService.findAll({ status, operationalArea, search }, user);
+  }
+
+  @Get('documents/:docId/content')
+  @ApiBearerAuth()
+  @Roles('TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN')
+  @ApiOperation({
+    summary: 'Previsualizar o descargar documento del colaborador desde el bucket S3 (alliance)',
+  })
+  async getDocumentContent(
+    @Param('docId') docId: string,
+    @Query('download') download: string | undefined,
+    @CurrentUser() user: AuthenticatedUserProfile,
+    @Res() res: Response,
+  ) {
+    const file = await this.employeesService.getDocumentContent(docId, user);
+    const disposition = download === '1' || download === 'true' ? 'attachment' : 'inline';
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Disposition', `${disposition}; filename="${file.fileName}"`);
+    res.send(file.buffer);
+  }
+
+  @Get(':id/signature/content')
+  @ApiBearerAuth()
+  @Roles('TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({
+    summary: 'Previsualizar o descargar firma electrónica Ley 1581 desde el bucket S3',
+  })
+  async getSignatureContent(
+    @Param('id') id: string,
+    @Query('download') download: string | undefined,
+    @Res() res: Response,
+  ) {
+    const file = await this.employeesService.getSignatureContent(id);
+    const disposition = download === '1' || download === 'true' ? 'attachment' : 'inline';
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Disposition', `${disposition}; filename="${file.fileName}"`);
+    res.send(file.buffer);
   }
 
   @Get(':id')

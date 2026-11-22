@@ -17,6 +17,7 @@ import {
 } from '@alliance-hcm/database';
 import {
   calculateAge,
+  DocumentType,
   HABEAS_DATA_POLICY_TEXT,
   HABEAS_DATA_POLICY_VERSION,
 } from '@alliance-hcm/shared';
@@ -179,6 +180,29 @@ export class PreOnboardingService {
     });
   }
 
+  async uploadDocumentFile(params: {
+    file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
+    documentType: DocumentType;
+    nationalId?: string;
+  }) {
+    const folder = `employees/${params.nationalId?.trim() || 'pending'}/${params.documentType.toLowerCase()}`;
+    const uploaded = await this.storageService.uploadObject({
+      folder,
+      fileName: params.file.originalname,
+      contentType: params.file.mimetype || 'application/pdf',
+      body: params.file.buffer,
+    });
+
+    return {
+      documentType: params.documentType,
+      fileName: params.file.originalname,
+      mimeType: uploaded.mimeType,
+      fileSize: uploaded.fileSize,
+      s3Key: uploaded.s3Key,
+      s3Url: uploaded.publicUrl,
+    };
+  }
+
   async submitPreOnboarding(
     dto: SubmitPreOnboardingDto,
     metadata: { ip: string; userAgent: string },
@@ -281,6 +305,27 @@ export class PreOnboardingService {
       employeeId = inserted.id;
     }
 
+    // Subir firma electrónica manuscrita a Supabase Storage S3 (si viene en base64 Data URL)
+    let persistedSignatureUrl = dto.signatureDataUrl;
+    if (dto.signatureDataUrl.startsWith('data:image/')) {
+      try {
+        const [, base64Payload] = dto.signatureDataUrl.split(',');
+        if (base64Payload) {
+          const uploadedSig = await this.storageService.uploadObject({
+            folder: `signatures/${dto.nationalId}`,
+            fileName: `firma-ley1581-${dto.nationalId}.png`,
+            contentType: 'image/png',
+            body: Buffer.from(base64Payload, 'base64'),
+          });
+          persistedSignatureUrl = uploadedSig.s3Key;
+        }
+      } catch (err) {
+        this.logger.warn(
+          `No se pudo subir la firma a S3, se conserva inline: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
     // Registrar firma electrónica Ley 1581 con Hash SHA-256, IP, User-Agent y Timestamp
     const signedAt = new Date();
     const consentHash = createHash('sha256')
@@ -303,7 +348,7 @@ export class PreOnboardingService {
         employeeId,
         policyVersion: HABEAS_DATA_POLICY_VERSION,
         documentSha256Hash: consentHash,
-        signatureImageUrl: dto.signatureDataUrl,
+        signatureImageUrl: persistedSignatureUrl,
         signerIp: metadata.ip,
         userAgent: metadata.userAgent,
         otpVerifiedAt: otpVerification.verifiedAt,

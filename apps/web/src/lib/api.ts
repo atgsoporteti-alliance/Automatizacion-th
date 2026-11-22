@@ -54,6 +54,7 @@ export interface EmployeeRecord {
     id: string;
     documentType: string;
     fileName: string;
+    mimeType?: string;
     s3Url: string;
     verified: boolean;
   }>;
@@ -274,6 +275,53 @@ export const apiClient = {
         body: JSON.stringify(payload),
       },
     ),
+  uploadPreOnboardingFile: async (
+    file: File,
+    documentType: string,
+    nationalId?: string,
+  ): Promise<{
+    documentType: string;
+    fileName: string;
+    mimeType: string;
+    fileSize: number;
+    s3Key: string;
+    s3Url: string;
+  }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('documentType', documentType);
+    if (nationalId) formData.append('nationalId', nationalId);
+
+    const response = await fetch(`${API_BASE}/pre-onboarding/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error subiendo archivo (${response.status})`);
+    }
+    return response.json();
+  },
+  fetchProtectedBlob: async (
+    path: string,
+  ): Promise<{ blob: Blob; objectUrl: string; contentType: string }> => {
+    const authHeaders = await getAuthHeaders();
+    const response = await fetch(`${API_BASE}${path}`, {
+      headers: authHeaders,
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      throw new Error(`No se pudo obtener el archivo (${response.status})`);
+    }
+
+    const blob = await response.blob();
+    return {
+      blob,
+      objectUrl: URL.createObjectURL(blob),
+      contentType: response.headers.get('content-type') || blob.type || 'application/pdf',
+    };
+  },
   submitPreOnboarding: (payload: Record<string, unknown>) =>
     apiFetch<{
       employeeId: string;

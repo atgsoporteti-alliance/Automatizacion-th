@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { employees } from '@alliance-hcm/database';
+import { dataConsentSignatures, employeeDocuments, employees } from '@alliance-hcm/database';
 import {
   AuthenticatedUserProfile,
   canAccessOperationalArea,
@@ -10,6 +10,7 @@ import {
 import { and, desc, eq, ilike, or } from 'drizzle-orm';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
+import { StorageService } from '../../common/storage/storage.service';
 import { UpdateOrganizationalDto } from './dto/update-organizational.dto';
 
 export interface DuplicateCheckResult {
@@ -31,6 +32,7 @@ export class EmployeesService {
   constructor(
     private readonly database: DatabaseService,
     private readonly auditService: AuditService,
+    private readonly storageService?: StorageService,
   ) {}
 
   async checkDuplicate(nationalId?: string, email?: string): Promise<DuplicateCheckResult> {
@@ -223,5 +225,70 @@ export class EmployeesService {
     });
 
     return updated;
+  }
+
+  async getDocumentContent(docId: string, user?: AuthenticatedUserProfile) {
+    const doc = await this.database.db.query.employeeDocuments.findFirst({
+      where: eq(employeeDocuments.id, docId),
+      with: { employee: true },
+    });
+
+    if (!doc) {
+      throw new NotFoundException(`Documento ${docId} no encontrado`);
+    }
+
+    if (
+      user?.role === 'AREA_LEADER' &&
+      !canAccessOperationalArea(user.operationalArea, doc.employee.operationalArea)
+    ) {
+      throw new ForbiddenException('No tienes permisos para acceder a este documento.');
+    }
+
+    if (!this.storageService) {
+      throw new NotFoundException('StorageService no disponible.');
+    }
+
+    const { buffer, contentType } = await this.storageService.getObjectBuffer(doc.s3Key);
+    return {
+      buffer,
+      mimeType: doc.mimeType || contentType,
+      fileName: doc.fileName,
+    };
+  }
+
+  async getSignatureContent(employeeId: string) {
+    const sig = await this.database.db.query.dataConsentSignatures.findFirst({
+      where: eq(dataConsentSignatures.employeeId, employeeId),
+      orderBy: [desc(dataConsentSignatures.signedAt)],
+    });
+
+    if (!sig) {
+      throw new NotFoundException(`Firma Ley 1581 no encontrada para colaborador ${employeeId}`);
+    }
+
+    if (sig.signatureImageUrl.startsWith('data:image/')) {
+      const [, base64Payload] = sig.signatureImageUrl.split(',');
+      return {
+        buffer: Buffer.from(base64Payload ?? '', 'base64'),
+        mimeType: 'image/png',
+        fileName: `firma-ley1581-${employeeId}.png`,
+      };
+    }
+
+    if (!this.storageService) {
+      throw new NotFoundException('StorageService no disponible.');
+    }
+
+    // Si signatureImageUrl guarda la s3Key (ej: signatures/<cedula>/...)
+    const s3Key = sig.signatureImageUrl.startsWith('http')
+      ? sig.signatureImageUrl.split('/alliance/')[1] ?? sig.signatureImageUrl
+      : sig.signatureImageUrl;
+
+    const { buffer, contentType } = await this.storageService.getObjectBuffer(s3Key);
+    return {
+      buffer,
+      mimeType: contentType || 'image/png',
+      fileName: `firma-ley1581-${employeeId}.png`,
+    };
   }
 }
