@@ -15,6 +15,7 @@
     "build:api": "npm run build:packages && npm run build --workspace=@alliance-hcm/api",
     "build:web": "npm run build:packages && npm run build --workspace=@alliance-hcm/web",
     "start:api": "node apps/api/dist/main.js",
+    "start:prod": "node apps/api/dist/main.js",
     "build": "npm run build:packages && npm run build --workspace=@alliance-hcm/api && npm run build --workspace=@alliance-hcm/web",
     "typecheck": "npm run typecheck --workspace=@alliance-hcm/shared && npm run typecheck --workspace=@alliance-hcm/database && npm run typecheck --workspace=@alliance-hcm/api && npm run typecheck --workspace=@alliance-hcm/web",
     "test": "npm run test --workspace=@alliance-hcm/api",
