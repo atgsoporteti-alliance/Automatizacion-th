@@ -24,27 +24,24 @@ git push origin main
    *(No uses `npm run build` en Render porque ese script compila también el frontend `apps/web`).*
 3. Configura las variables de entorno en Render:
    - `NODE_ENV=production` *(Importante: déjalo exactamente en `production`)*
-   - `DATABASE_URL=postgresql://postgres.lyvnakpcmknesqxlvawq:[TU-PASSWORD-URL-ENCODED]@aws-1-us-west-2.pooler.supabase.com:5432/postgres`
+   - `DATABASE_URL=postgresql://postgres.<project-ref>:<tu-password-url-encoded>@aws-1-us-west-2.pooler.supabase.com:5432/postgres`
    - `WEB_URL=https://tu-app.vercel.app` *(o `.netlify.app`; puedes separar múltiples URLs por coma)*
    - `JWT_SECRET=cambia-este-secreto-en-uat`
    - `HELPDESK_MOCK_ENABLED=true`
-   - `SUPABASE_URL=https://lyvnakpcmknesqxlvawq.supabase.co`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_86PaPJymKcDSLKX_5QVagA_7a4L6s00`
+   - `SUPABASE_URL=https://<project-ref>.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY=<tu-supabase-publishable-key>`
    - `NEXT_PUBLIC_DEV_AUTH_BYPASS=true` *(permite que tu jefe pruebe los 6 roles en 1 clic durante UAT; pon `false` en producción final)*
 4. Copia la URL pública generada (ej: `https://alliance-hcm-api.onrender.com`).
 
 ---
 
-## Paso 3: Desplegar Frontend (`apps/web`) en Vercel
-1. Importa el mismo repositorio en **Vercel**.
-2. En **Root Directory**, selecciona `apps/web`.
-3. En **Build & Development Settings**:
-   - **Install Command:** `cd ../.. && npm install`
-   - **Build Command:** `cd ../.. && npm run build:packages && npm run build --workspace=@alliance-hcm/web`
-4. Agrega las variables de entorno en Vercel:
+## Paso 3: Desplegar Frontend (`apps/web`) en Vercel o Netlify
+1. Importa el mismo repositorio en **Vercel** (o **Netlify** usando `netlify.toml`).
+2. En **Vercel**, selecciona Root Directory `apps/web` (`Install: cd ../.. && npm install`, `Build: cd ../.. && npm run build:web`). En **Netlify**, deja Base directory vacío.
+3. Agrega las variables de entorno:
    - `NEXT_PUBLIC_API_URL=https://alliance-hcm-api.onrender.com/api`
-   - `NEXT_PUBLIC_SUPABASE_URL=https://lyvnakpcmknesqxlvawq.supabase.co`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_86PaPJymKcDSLKX_5QVagA_7a4L6s00`
+   - `NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY=<tu-supabase-publishable-key>`
    - `NEXT_PUBLIC_DEV_AUTH_BYPASS=true` *(para UAT con selector rápido de roles)*
 5. Haz clic en **Deploy** y actualiza `WEB_URL` en el backend con la URL de Vercel.
 
