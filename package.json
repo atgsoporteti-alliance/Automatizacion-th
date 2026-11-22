@@ -1,26 +1,30 @@
 {
-  "name": "automatizacion-th",
-  "version": "0.1.0",
+  "name": "alliance-hcm-monorepo",
+  "version": "1.0.0",
   "private": true,
+  "description": "Alliance HCM – Core TH & IT (Fase 1 MVP)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "16.4.6",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "dev": "concurrently -n API,WEB -c blue,green \"npm run dev --workspace=@alliance-hcm/api\" \"npm run dev --workspace=@alliance-hcm/web\"",
+    "dev:api": "npm run dev --workspace=@alliance-hcm/api",
+    "dev:web": "npm run dev --workspace=@alliance-hcm/web",
+    "build:packages": "npm run build --workspace=@alliance-hcm/shared && npm run build --workspace=@alliance-hcm/database",
+    "build": "npm run build:packages && npm run build --workspace=@alliance-hcm/api && npm run build --workspace=@alliance-hcm/web",
+    "typecheck": "npm run typecheck --workspace=@alliance-hcm/shared && npm run typecheck --workspace=@alliance-hcm/database && npm run typecheck --workspace=@alliance-hcm/api && npm run typecheck --workspace=@alliance-hcm/web",
+    "test": "npm run test --workspace=@alliance-hcm/api",
+    "db:generate": "npm run db:generate --workspace=@alliance-hcm/database",
+    "db:migrate": "npm run db:migrate --workspace=@alliance-hcm/database",
+    "db:push": "npm run db:push --workspace=@alliance-hcm/database",
+    "db:seed": "npm run db:seed --workspace=@alliance-hcm/database",
+    "db:studio": "npm run db:studio --workspace=@alliance-hcm/database",
+    "docker:up": "docker compose -f infra/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infra/docker-compose.yml down"
   },
   "devDependencies": {
-    "@tailwindcss/turbopack": "4.3.3",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.4.6",
-    "tailwindcss": "4.3.3",
-    "typescript": "^5"
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3"
   }
 }
