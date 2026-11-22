@@ -14,6 +14,7 @@ import {
   Eye,
   FileCheck2,
   Link2,
+  RotateCcw,
   Send,
   ShieldAlert,
   ShieldCheck,
@@ -38,6 +39,7 @@ import {
   CardTitle,
   Input,
   Label,
+  Textarea,
 } from '@/components/ui/primitives';
 
 export default function ThDashboardPage() {
@@ -57,6 +59,11 @@ export default function ThDashboardPage() {
     expiresIn: string;
   } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Devolución al candidato para corrección
+  const [returnReason, setReturnReason] = useState('');
+  const [returnedLink, setReturnedLink] = useState<string | null>(null);
+  const [copiedReturnLink, setCopiedReturnLink] = useState(false);
 
   // Modal de previsualización y descarga en la misma página
   const [previewState, setPreviewState] = useState<{
@@ -191,6 +198,21 @@ export default function ThDashboardPage() {
       apiClient.cancelNoShow(workflowId, 'Candidato reportado como No-Show el Día 1.'),
     onSuccess: () => {
       setFeedback('Workflow cancelado por No-Show y ticket Helpdesk revocado.');
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      queryClient.invalidateQueries({ queryKey: ['kpis'] });
+    },
+  });
+
+  const returnCandidateMutation = useMutation({
+    mutationFn: (vars: { workflowId: string; reason: string }) =>
+      apiClient.returnToCandidate(vars.workflowId, vars.reason),
+    onSuccess: (res) => {
+      setReturnedLink(res.correctionMagicLink);
+      setCopiedReturnLink(false);
+      setReturnReason('');
+      setFeedback(
+        'Pre-ingreso devuelto al candidato (CANDIDATE_PENDING). Comparte el enlace de corrección generado abajo.',
+      );
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
       queryClient.invalidateQueries({ queryKey: ['kpis'] });
     },
@@ -659,6 +681,85 @@ export default function ThDashboardPage() {
                         <Ban className="h-4 w-4" />
                         Cancelar por No-Show (Día 1)
                       </Button>
+                    </div>
+
+                    {/* Devolución al candidato para corregir datos */}
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-4 space-y-3 dark:border-amber-900/70 dark:bg-amber-950/20">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Devolver Pre-Ingreso para Corrección de Datos
+                        </span>
+                      </div>
+                      <Textarea
+                        placeholder="Indica qué debe corregir el colaborador (ej: Cédula borrosa o error en dirección)..."
+                        value={returnReason}
+                        onChange={(e) => setReturnReason(e.target.value)}
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={
+                            returnReason.trim().length < 4 || returnCandidateMutation.isPending
+                          }
+                          onClick={() =>
+                            returnCandidateMutation.mutate({
+                              workflowId: selectedWorkflow.id,
+                              reason: returnReason.trim(),
+                            })
+                          }
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                          {returnCandidateMutation.isPending
+                            ? 'Generando enlace...'
+                            : 'Devolver al Candidato y Generar Link de Corrección'}
+                        </Button>
+                      </div>
+
+                      {returnedLink && (
+                        <div className="rounded-md border border-amber-300 bg-white p-3 space-y-2 dark:border-amber-800 dark:bg-slate-950">
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="font-semibold text-amber-800 dark:text-amber-300">
+                              Link seguro de corrección (pre-carga los 24 campos):
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  await navigator.clipboard.writeText(returnedLink);
+                                  setCopiedReturnLink(true);
+                                  setTimeout(() => setCopiedReturnLink(false), 2500);
+                                }}
+                              >
+                                {copiedReturnLink ? (
+                                  <>
+                                    <Check className="h-3.5 w-3.5 text-emerald-600" /> Copiado
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="h-3.5 w-3.5" /> Copiar
+                                  </>
+                                )}
+                              </Button>
+                              <a
+                                href={returnedLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 px-3 text-xs font-medium hover:bg-slate-50 dark:border-slate-700"
+                              >
+                                Abrir
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            </div>
+                          </div>
+                          <code className="block break-all text-[11px] text-slate-600 dark:text-slate-300">
+                            {returnedLink}
+                          </code>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

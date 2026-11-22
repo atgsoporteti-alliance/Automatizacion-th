@@ -186,15 +186,17 @@ export class SubmitPreOnboardingDto {
   @MaxLength(120)
   eps: string;
 
-  @ApiProperty({ example: 'Porvenir' })
+  @ApiPropertyOptional({ example: 'Porvenir' })
+  @IsOptional()
   @IsString()
   @MaxLength(120)
-  pensionFund: string;
+  pensionFund?: string;
 
-  @ApiProperty({ example: 'Porvenir' })
+  @ApiPropertyOptional({ example: 'Porvenir' })
+  @IsOptional()
   @IsString()
   @MaxLength(120)
-  severanceFund: string;
+  severanceFund?: string;
 
   @ApiProperty({ example: false })
   @IsBoolean()

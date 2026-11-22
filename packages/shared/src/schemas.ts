@@ -30,19 +30,30 @@ export const wizardStep1Schema = z.object({
 });
 
 // Paso 2: Ubicación, Contacto y Dotación
-export const wizardStep2Schema = z.object({
-  address: z.string().min(5, 'Ingresa tu dirección completa').max(200),
-  neighborhoodCity: z.string().min(3, 'Ingresa barrio y ciudad').max(150),
-  phone: z
-    .string()
-    .regex(/^[0-9+\-\s]{7,20}$/, 'Ingresa un número de celular válido'),
-  personalEmail: z.string().email('Ingresa un correo electrónico válido').max(150),
-  hasChildren: z.boolean().default(false),
-  childrenCount: z.coerce.number().int().min(0).max(20).default(0),
-  shirtSize: z.enum(SHIRT_SIZES, {
-    errorMap: () => ({ message: 'Selecciona tu talla de camiseta' }),
-  }),
-});
+export const wizardStep2Schema = z
+  .object({
+    address: z.string().trim().min(5, 'Ingresa tu dirección completa').max(200),
+    neighborhoodCity: z.string().trim().min(3, 'Ingresa barrio y ciudad').max(150),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^[0-9+\-\s]{7,20}$/, 'Ingresa un número de celular válido'),
+    personalEmail: z.string().trim().email('Ingresa un correo electrónico válido').max(150),
+    hasChildren: z.boolean().default(false),
+    childrenCount: z.coerce.number().int().min(0).max(20).default(0),
+    shirtSize: z.enum(SHIRT_SIZES, {
+      errorMap: () => ({ message: 'Selecciona tu talla de camiseta' }),
+    }),
+  })
+  .superRefine((val, ctx) => {
+    if (val.hasChildren && val.childrenCount < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['childrenCount'],
+        message: 'Indica la cantidad de hijos (mínimo 1)',
+      });
+    }
+  });
 
 // Paso 3: Formación Académica
 export const wizardStep3Schema = z.object({
@@ -54,9 +65,9 @@ export const wizardStep3Schema = z.object({
 
 // Paso 4: Seguridad Social y Banco
 export const wizardStep4Schema = z.object({
-  eps: z.string().min(2, 'Ingresa tu EPS').max(120),
-  pensionFund: z.string().min(2, 'Ingresa tu Fondo de Pensión').max(120),
-  severanceFund: z.string().min(2, 'Ingresa tu Fondo de Cesantías').max(120),
+  eps: z.string().trim().min(2, 'Ingresa tu EPS').max(120),
+  pensionFund: z.string().trim().max(120).optional().default(''),
+  severanceFund: z.string().trim().max(120).optional().default(''),
   hasBancolombiaAccount: z.boolean().default(false),
 });
 
@@ -84,14 +95,16 @@ export const uploadedDocumentSchema = z.object({
 });
 
 export const preOnboardingSubmissionSchema = wizardStep1Schema
-  .merge(wizardStep2Schema)
-  .merge(wizardStep3Schema)
-  .merge(wizardStep4Schema)
-  .merge(wizardStep5Schema)
-  .extend({
-    token: z.string().min(1),
-    documents: z.array(uploadedDocumentSchema).optional().default([]),
-  });
+  .and(wizardStep2Schema)
+  .and(wizardStep3Schema)
+  .and(wizardStep4Schema)
+  .and(wizardStep5Schema)
+  .and(
+    z.object({
+      token: z.string().min(1),
+      documents: z.array(uploadedDocumentSchema).optional().default([]),
+    }),
+  );
 
 export const approveThWorkflowSchema = z.object({
   operationalArea: z.enum(OPERATIONAL_AREAS),

@@ -3,7 +3,10 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { and, desc, eq } from 'drizzle-orm';
 import { employees, onboardingOffboardingWorkflows } from '@alliance-hcm/database';
 import {
@@ -22,6 +25,7 @@ import {
   ApproveDsiWorkflowDto,
   ApproveThWorkflowDto,
   CancelNoShowDto,
+  ReturnToCandidateDto,
 } from './dto/workflow-actions.dto';
 
 @Injectable()
@@ -31,6 +35,8 @@ export class WorkflowsService {
     private readonly auditService: AuditService,
     private readonly ruleEngine: RuleEngineService,
     private readonly helpdeskService: HelpdeskService,
+    @Optional() private readonly jwtService?: JwtService,
+    @Optional() private readonly config?: ConfigService,
   ) {}
 
   async findAll(
@@ -333,5 +339,81 @@ export class WorkflowsService {
     });
 
     return updatedWorkflow;
+  }
+
+  async returnToCandidate(
+    workflowId: string,
+    dto: ReturnToCandidateDto,
+    actorId = 'th-analyst',
+  ) {
+    const workflow = await this.database.db.query.onboardingOffboardingWorkflows.findFirst({
+      where: eq(onboardingOffboardingWorkflows.id, workflowId),
+      with: { employee: true },
+    });
+
+    if (!workflow) {
+      throw new NotFoundException(`Workflow ${workflowId} no encontrado`);
+    }
+
+    const [updatedWorkflow] = await this.database.db
+      .update(onboardingOffboardingWorkflows)
+      .set({
+        currentStep: 'CANDIDATE_PENDING',
+        isOutOfSla: false,
+        notes: dto.reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(onboardingOffboardingWorkflows.id, workflowId))
+      .returning();
+
+    const token = this.jwtService
+      ? await this.jwtService.signAsync(
+          {
+            sub: workflow.employee.personalEmail,
+            name: workflow.employee.fullName,
+            nationalId: workflow.employee.nationalId,
+            employeeId: workflow.employeeId,
+            workflowId: workflow.id,
+            correctionNote: dto.reason,
+            purpose: 'PRE_ONBOARDING',
+          },
+          {
+            secret:
+              this.config?.get<string>('JWT_SECRET', 'alliance-hcm-dev-jwt-secret') ??
+              'alliance-hcm-dev-jwt-secret',
+            expiresIn: '72h',
+          },
+        )
+      : '';
+
+    const rawWebUrl = (
+      this.config?.get<string>('WEB_URL', 'http://localhost:3000') ?? 'http://localhost:3000'
+    )
+      .split(',')[0]
+      .trim();
+
+    let webUrl = 'http://localhost:3000';
+    try {
+      webUrl = new URL(rawWebUrl).origin;
+    } catch {
+      webUrl = rawWebUrl.replace(/\/+$/, '');
+    }
+
+    const correctionMagicLink = `${webUrl}/pre-ingreso/${token}`;
+
+    await this.auditService.record({
+      actorId,
+      action: 'TH_RETURNED_PRE_ONBOARDING',
+      entity: 'onboarding_offboarding_workflows',
+      entityId: workflowId,
+      oldValues: { currentStep: workflow.currentStep },
+      newValues: { currentStep: 'CANDIDATE_PENDING', reason: dto.reason },
+    });
+
+    return {
+      workflow: updatedWorkflow,
+      correctionMagicLink,
+      correctionNote: dto.reason,
+    };
   }
 }

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEmail, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsDateString, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { OPERATIONAL_AREAS, OperationalArea } from '@alliance-hcm/shared';
 
 export class ApproveThWorkflowDto {
@@ -60,4 +60,12 @@ export class CancelNoShowDto {
   @IsOptional()
   @IsEmail()
   actorEmail?: string;
+}
+
+export class ReturnToCandidateDto {
+  @ApiProperty({ example: 'Por favor corrige tu dirección y vuelve a subir el PDF de la cédula legible.' })
+  @IsString()
+  @MinLength(4)
+  @MaxLength(500)
+  reason: string;
 }

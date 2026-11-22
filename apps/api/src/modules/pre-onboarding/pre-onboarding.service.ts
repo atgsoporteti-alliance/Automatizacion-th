@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash } from 'crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import {
   dataConsentSignatures,
   employeeDocuments,
@@ -90,6 +90,7 @@ export class PreOnboardingService {
     if (token === 'demo-token' && this.config.get<string>('NODE_ENV', 'development') !== 'production') {
       return {
         valid: true,
+        isCorrection: false,
         candidateName: 'Candidato Demo Alliance',
         candidateEmail: '',
         policyVersion: HABEAS_DATA_POLICY_VERSION,
@@ -101,6 +102,9 @@ export class PreOnboardingService {
         sub: string;
         name: string;
         nationalId?: string | null;
+        employeeId?: string;
+        workflowId?: string;
+        correctionNote?: string;
         purpose: string;
       }>(token, {
         secret: this.config.get<string>('JWT_SECRET', 'alliance-hcm-dev-jwt-secret'),
@@ -112,8 +116,66 @@ export class PreOnboardingService {
 
       const candidateEmail = payload.sub.startsWith('inv-') ? '' : payload.sub;
 
+      if (payload.employeeId && payload.workflowId) {
+        const employee = await this.database.db.query.employees.findFirst({
+          where: eq(employees.id, payload.employeeId),
+          with: { documents: true },
+        });
+        const workflow = await this.database.db.query.onboardingOffboardingWorkflows.findFirst({
+          where: eq(onboardingOffboardingWorkflows.id, payload.workflowId),
+        });
+
+        if (employee && workflow) {
+          return {
+            valid: true,
+            isCorrection: true,
+            employeeId: employee.id,
+            workflowId: workflow.id,
+            correctionNote: workflow.notes ?? payload.correctionNote ?? 'Corrige los datos solicitados por Talento Humano.',
+            candidateName: employee.fullName,
+            candidateEmail: employee.personalEmail,
+            nationalId: employee.nationalId,
+            policyVersion: HABEAS_DATA_POLICY_VERSION,
+            prefillData: {
+              fullName: employee.fullName,
+              preferredNameCredentials: employee.preferredNameCredentials,
+              nationalId: employee.nationalId,
+              idIssuePlace: employee.idIssuePlace,
+              birthDate: employee.birthDate,
+              birthPlace: employee.birthPlace,
+              maritalStatus: employee.maritalStatus,
+              address: employee.address,
+              neighborhoodCity: employee.neighborhoodCity,
+              phone: employee.phone,
+              personalEmail: employee.personalEmail,
+              hasChildren: employee.hasChildren,
+              childrenCount: employee.childrenCount,
+              shirtSize: employee.shirtSize,
+              educationLevel: employee.educationLevel,
+              lastAcademicTitle: employee.lastAcademicTitle,
+              eps: employee.eps,
+              pensionFund: employee.pensionFund ?? '',
+              severanceFund: employee.severanceFund ?? '',
+              hasBancolombiaAccount: employee.hasBancolombiaAccount,
+              emergencyContactName: employee.emergencyContactName,
+              emergencyContactRelationship: employee.emergencyContactRelationship,
+              emergencyContactPhone: employee.emergencyContactPhone,
+            },
+            existingDocuments: employee.documents.map((d) => ({
+              documentType: d.documentType,
+              fileName: d.fileName,
+              mimeType: d.mimeType,
+              fileSize: d.fileSize,
+              s3Key: d.s3Key,
+              s3Url: d.s3Url,
+            })),
+          };
+        }
+      }
+
       return {
         valid: true,
+        isCorrection: false,
         candidateName: payload.name || '',
         candidateEmail,
         nationalId: payload.nationalId ?? null,
@@ -222,7 +284,7 @@ export class PreOnboardingService {
     dto: SubmitPreOnboardingDto,
     metadata: { ip: string; userAgent: string },
   ) {
-    await this.verifyMagicLink(dto.token);
+    const tokenInfo = await this.verifyMagicLink(dto.token);
 
     if (!dto.habeasDataAccepted) {
       throw new BadRequestException(
@@ -236,20 +298,67 @@ export class PreOnboardingService {
       code: dto.otpCode,
     });
 
-    // Verificar duplicados y detectar reintegro
+    const isCorrection = Boolean(tokenInfo.isCorrection && 'employeeId' in tokenInfo && tokenInfo.employeeId);
+    const correctionEmployeeId =
+      'employeeId' in tokenInfo ? (tokenInfo.employeeId as string) : undefined;
+    const correctionWorkflowId =
+      'workflowId' in tokenInfo ? (tokenInfo.workflowId as string) : undefined;
+
+    // Verificar duplicados y detectar reintegro (en corrección se omite conflicto con su propio expediente)
     const duplicate = await this.employeesService.checkDuplicate(
       dto.nationalId,
       dto.personalEmail,
     );
 
-    if (duplicate.exists && !duplicate.isRehire) {
+    if (
+      duplicate.exists &&
+      !duplicate.isRehire &&
+      !(isCorrection && duplicate.existingEmployee?.id === correctionEmployeeId)
+    ) {
       throw new ConflictException(duplicate.message);
     }
 
     const computedAge = calculateAge(dto.birthDate);
+    const normalizedPension = dto.pensionFund?.trim() ?? '';
+    const normalizedSeverance = dto.severanceFund?.trim() ?? '';
     let employeeId: string;
 
-    if (duplicate.exists && duplicate.isRehire && duplicate.existingEmployee) {
+    if (isCorrection && correctionEmployeeId) {
+      const [updated] = await this.database.db
+        .update(employees)
+        .set({
+          status: 'PRE_ONBOARDING',
+          fullName: dto.fullName,
+          preferredNameCredentials: dto.preferredNameCredentials,
+          nationalId: dto.nationalId,
+          idIssuePlace: dto.idIssuePlace,
+          birthDate: dto.birthDate,
+          birthPlace: dto.birthPlace,
+          age: computedAge,
+          maritalStatus: dto.maritalStatus,
+          address: dto.address,
+          neighborhoodCity: dto.neighborhoodCity,
+          phone: dto.phone,
+          personalEmail: dto.personalEmail,
+          educationLevel: dto.educationLevel,
+          lastAcademicTitle: dto.lastAcademicTitle,
+          eps: dto.eps,
+          pensionFund: normalizedPension,
+          severanceFund: normalizedSeverance,
+          hasChildren: dto.hasChildren,
+          childrenCount: dto.hasChildren ? dto.childrenCount : 0,
+          hasBancolombiaAccount: dto.hasBancolombiaAccount,
+          shirtSize: dto.shirtSize,
+          emergencyContactName: dto.emergencyContactName,
+          emergencyContactRelationship: dto.emergencyContactRelationship,
+          emergencyContactPhone: dto.emergencyContactPhone,
+          updatedAt: new Date(),
+        })
+        .where(eq(employees.id, correctionEmployeeId))
+        .returning();
+
+      employeeId = updated.id;
+    } else if (duplicate.exists && duplicate.isRehire && duplicate.existingEmployee) {
       // Reintegro: actualizar expediente histórico sin duplicar registro
       const [updated] = await this.database.db
         .update(employees)
@@ -269,8 +378,8 @@ export class PreOnboardingService {
           educationLevel: dto.educationLevel,
           lastAcademicTitle: dto.lastAcademicTitle,
           eps: dto.eps,
-          pensionFund: dto.pensionFund,
-          severanceFund: dto.severanceFund,
+          pensionFund: normalizedPension,
+          severanceFund: normalizedSeverance,
           hasChildren: dto.hasChildren,
           childrenCount: dto.hasChildren ? dto.childrenCount : 0,
           hasBancolombiaAccount: dto.hasBancolombiaAccount,
@@ -305,8 +414,8 @@ export class PreOnboardingService {
           educationLevel: dto.educationLevel,
           lastAcademicTitle: dto.lastAcademicTitle,
           eps: dto.eps,
-          pensionFund: dto.pensionFund,
-          severanceFund: dto.severanceFund,
+          pensionFund: normalizedPension,
+          severanceFund: normalizedSeverance,
           hasChildren: dto.hasChildren,
           childrenCount: dto.hasChildren ? dto.childrenCount : 0,
           hasBancolombiaAccount: dto.hasBancolombiaAccount,
@@ -371,8 +480,20 @@ export class PreOnboardingService {
       })
       .returning();
 
-    // Guardar referencias de documentos cargados en MinIO/S3
+    // Guardar referencias de documentos cargados en Supabase Storage S3 (reemplazando si es corrección)
     if (dto.documents && dto.documents.length > 0) {
+      if (isCorrection) {
+        for (const doc of dto.documents) {
+          await this.database.db
+            .delete(employeeDocuments)
+            .where(
+              and(
+                eq(employeeDocuments.employeeId, employeeId),
+                eq(employeeDocuments.documentType, doc.documentType),
+              ),
+            );
+        }
+      }
       await this.database.db.insert(employeeDocuments).values(
         dto.documents.map((doc) => ({
           employeeId,
@@ -387,26 +508,48 @@ export class PreOnboardingService {
       );
     }
 
-    // Crear workflow de Onboarding en estado TH_REVIEW con SLA de 24h
+    // Actualizar workflow existente si es corrección o crear nuevo workflow en TH_REVIEW
     const slaDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const [workflow] = await this.database.db
-      .insert(onboardingOffboardingWorkflows)
-      .values({
-        employeeId,
-        flowType: 'ONBOARDING',
-        urgency: 'STANDARD',
-        currentStep: 'TH_REVIEW',
-        slaDeadline,
-        isOutOfSla: false,
-        notes: duplicate.isRehire
-          ? 'Reintegro detectado automáticamente. Expediente actualizado y firmado bajo Ley 1581.'
-          : 'Pre-ingreso completado por el candidato con firma electrónica Ley 1581.',
-      })
-      .returning();
+    let workflow: typeof onboardingOffboardingWorkflows.$inferSelect;
+
+    if (isCorrection && correctionWorkflowId) {
+      const [updatedWf] = await this.database.db
+        .update(onboardingOffboardingWorkflows)
+        .set({
+          currentStep: 'TH_REVIEW',
+          slaDeadline,
+          isOutOfSla: false,
+          notes: 'Datos corregidos y reenviados por el candidato tras devolución de TH.',
+          updatedAt: new Date(),
+        })
+        .where(eq(onboardingOffboardingWorkflows.id, correctionWorkflowId))
+        .returning();
+      workflow = updatedWf;
+    } else {
+      const [insertedWf] = await this.database.db
+        .insert(onboardingOffboardingWorkflows)
+        .values({
+          employeeId,
+          flowType: 'ONBOARDING',
+          urgency: 'STANDARD',
+          currentStep: 'TH_REVIEW',
+          slaDeadline,
+          isOutOfSla: false,
+          notes: duplicate.isRehire
+            ? 'Reintegro detectado automáticamente. Expediente actualizado y firmado bajo Ley 1581.'
+            : 'Pre-ingreso completado por el candidato con firma electrónica Ley 1581.',
+        })
+        .returning();
+      workflow = insertedWf;
+    }
 
     await this.auditService.record({
       actorId: dto.personalEmail,
-      action: duplicate.isRehire ? 'PRE_ONBOARDING_REHIRE_SUBMITTED' : 'PRE_ONBOARDING_SUBMITTED',
+      action: isCorrection
+        ? 'PRE_ONBOARDING_CORRECTION_SUBMITTED'
+        : duplicate.isRehire
+          ? 'PRE_ONBOARDING_REHIRE_SUBMITTED'
+          : 'PRE_ONBOARDING_SUBMITTED',
       entity: 'employees',
       entityId: employeeId,
       newValues: {
@@ -414,6 +557,7 @@ export class PreOnboardingService {
         age: computedAge,
         consentSha256: consentHash,
         isRehire: duplicate.isRehire,
+        isCorrection,
       },
     });
 

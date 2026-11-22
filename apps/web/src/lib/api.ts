@@ -265,10 +265,23 @@ export const apiClient = {
   verifyMagicLink: (token: string) =>
     apiFetch<{
       valid: boolean;
+      isCorrection?: boolean;
+      employeeId?: string;
+      workflowId?: string;
+      correctionNote?: string;
       candidateName: string;
       candidateEmail: string;
       nationalId?: string | null;
       policyVersion: string;
+      prefillData?: Record<string, unknown>;
+      existingDocuments?: Array<{
+        documentType: string;
+        fileName: string;
+        mimeType: string;
+        fileSize: number;
+        s3Key: string;
+        s3Url: string;
+      }>;
     }>(`/pre-onboarding/verify/${encodeURIComponent(token)}`),
   sendOtp: (email: string, phone?: string) =>
     apiFetch<{ sent: boolean; devOtp?: string }>('/pre-onboarding/otp/send', {
@@ -366,6 +379,15 @@ export const apiClient = {
     }),
   cancelNoShow: (workflowId: string, reason: string) =>
     apiFetch(`/workflows/${workflowId}/cancel-no-show`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  returnToCandidate: (workflowId: string, reason: string) =>
+    apiFetch<{
+      workflow: WorkflowRecord;
+      correctionMagicLink: string;
+      correctionNote: string;
+    }>(`/workflows/${workflowId}/return-candidate`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),

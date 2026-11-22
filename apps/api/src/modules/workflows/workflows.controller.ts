@@ -13,6 +13,7 @@ import {
   ApproveDsiWorkflowDto,
   ApproveThWorkflowDto,
   CancelNoShowDto,
+  ReturnToCandidateDto,
 } from './dto/workflow-actions.dto';
 
 @ApiTags('Workflows')
@@ -81,5 +82,19 @@ export class WorkflowsController {
     @CurrentUser() user: AuthenticatedUserProfile,
   ) {
     return this.workflowsService.cancelNoShow(id, { ...dto, actorEmail: user.email });
+  }
+
+  @Post(':id/return-candidate')
+  @Roles('TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({
+    summary:
+      'Devolver Pre-Ingreso al colaborador para corrección de datos y generar Magic Link pre-cargado',
+  })
+  returnToCandidate(
+    @Param('id') id: string,
+    @Body() dto: ReturnToCandidateDto,
+    @CurrentUser() user: AuthenticatedUserProfile,
+  ) {
+    return this.workflowsService.returnToCandidate(id, dto, user.id);
   }
 }

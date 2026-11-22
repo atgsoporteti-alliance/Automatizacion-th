@@ -26,6 +26,11 @@ import {
   SHIRT_SIZES,
   ShirtSize,
   UploadedDocumentInput,
+  wizardStep1Schema,
+  wizardStep2Schema,
+  wizardStep3Schema,
+  wizardStep4Schema,
+  wizardStep5Schema,
 } from '@alliance-hcm/shared';
 import { apiClient, DuplicateCheckResponse } from '@/lib/api';
 import { DocumentPreviewModal } from './document-preview-modal';
@@ -90,9 +95,13 @@ const DRAFT_KEY_PREFIX = 'alliance-hcm-preonboarding-draft-';
 
 export function PreOnboardingWizard({ token }: { token: string }) {
   const [step, setStep] = useState(1);
+  const [maxStepReached, setMaxStepReached] = useState(1);
   const [tokenState, setTokenState] = useState<'VERIFYING' | 'VALID' | 'INVALID'>('VERIFYING');
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [invitedCandidateName, setInvitedCandidateName] = useState<string | null>(null);
+  const [isCorrectionMode, setIsCorrectionMode] = useState(false);
+  const [correctionNote, setCorrectionNote] = useState<string | null>(null);
+  const [stepErrors, setStepErrors] = useState<string[]>([]);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheckResponse | null>(null);
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
@@ -162,13 +171,44 @@ export function PreOnboardingWizard({ token }: { token: string }) {
         if (!active) return;
         setTokenState('VALID');
         setInvitedCandidateName(res.candidateName || null);
-        const current = form.getValues();
-        form.reset({
-          ...current,
-          fullName: current.fullName || (res.candidateName && res.candidateName !== 'Candidato Demo Alliance' ? res.candidateName : ''),
-          personalEmail: current.personalEmail || res.candidateEmail || '',
-          nationalId: current.nationalId || res.nationalId || '',
-        });
+
+        if (res.isCorrection && res.prefillData) {
+          setIsCorrectionMode(true);
+          setCorrectionNote(res.correctionNote ?? 'Talento Humano solicitó corrección de datos.');
+          const current = form.getValues();
+          form.reset({
+            ...current,
+            ...(res.prefillData as Partial<WizardFormValues>),
+            habeasDataAccepted: false,
+            signatureDataUrl: '',
+            otpCode: '',
+          });
+          if (res.existingDocuments && res.existingDocuments.length > 0) {
+            setDocuments(
+              res.existingDocuments.map((d) => ({
+                documentType: d.documentType as UploadedDocumentInput['documentType'],
+                fileName: d.fileName,
+                mimeType: d.mimeType,
+                fileSize: d.fileSize,
+                s3Key: d.s3Key,
+                s3Url: d.s3Url,
+              })),
+            );
+          }
+          setMaxStepReached(5);
+        } else {
+          const current = form.getValues();
+          form.reset({
+            ...current,
+            fullName:
+              current.fullName ||
+              (res.candidateName && res.candidateName !== 'Candidato Demo Alliance'
+                ? res.candidateName
+                : ''),
+            personalEmail: current.personalEmail || res.candidateEmail || '',
+            nationalId: current.nationalId || res.nationalId || '',
+          });
+        }
       })
       .catch((err) => {
         if (!active) return;
@@ -291,7 +331,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
     const uploaded = documents.find((d) => d.documentType === documentType);
     const errMsg = uploadErrors[documentType];
 
-    if (!local && !errMsg) return null;
+    if (!local && !uploaded && !errMsg) return null;
 
     const fileName = uploaded?.fileName ?? local?.fileName ?? 'archivo';
     const mimeType = uploaded?.mimeType ?? local?.mimeType ?? 'application/pdf';
@@ -393,18 +433,101 @@ export function PreOnboardingWizard({ token }: { token: string }) {
     }
   };
 
+  const validateStep = (targetStep: number): string[] => {
+    const v = form.getValues();
+    const errors: string[] = [];
+
+    if (targetStep === 1) {
+      const parsed = wizardStep1Schema.safeParse(v);
+      if (!parsed.success) {
+        errors.push(...parsed.error.issues.map((i) => i.message));
+      }
+      if (v.birthDate && calculateAge(v.birthDate) < 14) {
+        errors.push('La fecha de nacimiento debe corresponder a una edad válida (mínimo 14 años).');
+      }
+      if (!isCorrectionMode && duplicateCheck?.exists && !duplicateCheck.isRehire) {
+        errors.push(duplicateCheck.message);
+      }
+    } else if (targetStep === 2) {
+      const parsed = wizardStep2Schema.safeParse({
+        ...v,
+        childrenCount: v.hasChildren ? Number(v.childrenCount || 0) : 0,
+      });
+      if (!parsed.success) {
+        errors.push(...parsed.error.issues.map((i) => i.message));
+      }
+    } else if (targetStep === 3) {
+      const parsed = wizardStep3Schema.safeParse(v);
+      if (!parsed.success) {
+        errors.push(...parsed.error.issues.map((i) => i.message));
+      }
+      if (!documents.some((d) => d.documentType === 'NATIONAL_ID_PDF')) {
+        errors.push('Debes adjuntar el PDF o imagen de tu Cédula de Ciudadanía.');
+      }
+      if (!documents.some((d) => d.documentType === 'ACADEMIC_CERTIFICATE')) {
+        errors.push('Debes adjuntar el soporte de tu Diploma o Acta de Grado.');
+      }
+    } else if (targetStep === 4) {
+      const parsed = wizardStep4Schema.safeParse(v);
+      if (!parsed.success) {
+        errors.push(...parsed.error.issues.map((i) => i.message));
+      }
+      if (
+        v.hasBancolombiaAccount &&
+        !documents.some((d) => d.documentType === 'BANK_CERTIFICATE')
+      ) {
+        errors.push('Si tienes cuenta Bancolombia, debes adjuntar tu Certificación Bancaria.');
+      }
+    } else if (targetStep === 5) {
+      const parsed = wizardStep5Schema.safeParse(v);
+      if (!parsed.success) {
+        errors.push(...parsed.error.issues.map((i) => i.message));
+      }
+    }
+
+    return Array.from(new Set(errors));
+  };
+
+  const handleNextStep = () => {
+    const errors = validateStep(step);
+    if (errors.length > 0) {
+      setStepErrors(errors);
+      return;
+    }
+    setStepErrors([]);
+    const next = Math.min(5, step + 1);
+    setStep(next);
+    setMaxStepReached((prev) => Math.max(prev, next));
+  };
+
+  const handleSelectStepTab = (targetStep: number) => {
+    if (targetStep === step) return;
+    if (targetStep < step || targetStep <= maxStepReached) {
+      // Si intenta avanzar, validar todos los pasos intermedios primero
+      if (targetStep > step) {
+        for (let s = step; s < targetStep; s++) {
+          const errs = validateStep(s);
+          if (errs.length > 0) {
+            setStep(s);
+            setStepErrors(errs);
+            return;
+          }
+        }
+      }
+      setStepErrors([]);
+      setStep(targetStep);
+    }
+  };
+
   const onSubmit = async (values: WizardFormValues) => {
     setSubmitError(null);
-    if (!values.habeasDataAccepted) {
-      setSubmitError('Debes aceptar la política de tratamiento de datos (Ley 1581 de 2012).');
-      return;
+    const allErrors: string[] = [];
+    for (let s = 1; s <= 5; s++) {
+      allErrors.push(...validateStep(s));
     }
-    if (!values.signatureDataUrl) {
-      setSubmitError('Debes registrar tu firma digital en el recuadro.');
-      return;
-    }
-    if (!/^\d{6}$/.test(values.otpCode)) {
-      setSubmitError('Ingresa el código OTP de 6 dígitos (o 123456 en entorno dev).');
+    if (allErrors.length > 0) {
+      setStepErrors(allErrors);
+      setSubmitError('Completa todos los campos obligatorios antes de finalizar.');
       return;
     }
 
@@ -412,6 +535,8 @@ export function PreOnboardingWizard({ token }: { token: string }) {
     try {
       const res = await apiClient.submitPreOnboarding({
         ...values,
+        pensionFund: values.pensionFund?.trim() ?? '',
+        severanceFund: values.severanceFund?.trim() ?? '',
         childrenCount: values.hasChildren ? Number(values.childrenCount || 0) : 0,
         token,
         documents,
@@ -522,26 +647,42 @@ export function PreOnboardingWizard({ token }: { token: string }) {
         )}
       </div>
 
+      {isCorrectionMode && correctionNote && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200 space-y-1">
+          <p className="font-semibold flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Devolución de Talento Humano — Corrección requerida
+          </p>
+          <p className="text-xs leading-relaxed">{correctionNote}</p>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Progress value={(step / 5) * 100} />
         <div className="grid grid-cols-5 gap-2">
-          {STEPS.map((s) => (
-            <button
-              key={s.number}
-              type="button"
-              onClick={() => setStep(s.number)}
-              className={`rounded-lg px-2 py-1.5 text-left text-xs transition-colors cursor-pointer ${
-                step === s.number
-                  ? 'bg-blue-600 text-white font-semibold'
-                  : s.number < step
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-              }`}
-            >
-              <span className="block font-bold">Paso {s.number}</span>
-              <span className="hidden sm:block truncate">{s.title}</span>
-            </button>
-          ))}
+          {STEPS.map((s) => {
+            const unlocked = s.number <= maxStepReached;
+            return (
+              <button
+                key={s.number}
+                type="button"
+                disabled={!unlocked}
+                onClick={() => handleSelectStepTab(s.number)}
+                className={`rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
+                  !unlocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                } ${
+                  step === s.number
+                    ? 'bg-blue-600 text-white font-semibold'
+                    : s.number < step
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                }`}
+              >
+                <span className="block font-bold">Paso {s.number}</span>
+                <span className="hidden sm:block truncate">{s.title}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -575,7 +716,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                       <RefreshCw className="absolute right-3 top-3 h-4 w-4 animate-spin text-slate-400" />
                     )}
                   </div>
-                  {duplicateCheck && (
+                  {duplicateCheck && !isCorrectionMode && (
                     <div
                       className={`mt-1.5 rounded-lg p-2.5 text-xs flex items-start gap-2 ${
                         !duplicateCheck.exists
@@ -766,12 +907,12 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                     <Input placeholder="Ej: Sura EPS / Sanitas" {...form.register('eps', { required: true })} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>17. Fondo de Pensión *</Label>
-                    <Input placeholder="Ej: Porvenir / Protección" {...form.register('pensionFund', { required: true })} />
+                    <Label>17. Fondo de Pensión (Opcional)</Label>
+                    <Input placeholder="Opcional · Ej: Porvenir / Protección" {...form.register('pensionFund')} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>18. Fondo de Cesantías *</Label>
-                    <Input placeholder="Ej: Porvenir / FNA" {...form.register('severanceFund', { required: true })} />
+                    <Label>18. Fondo de Cesantías (Opcional)</Label>
+                    <Input placeholder="Opcional · Ej: Porvenir / FNA" {...form.register('severanceFund')} />
                   </div>
                 </div>
 
@@ -916,27 +1057,47 @@ export function PreOnboardingWizard({ token }: { token: string }) {
               </div>
             )}
 
+            {stepErrors.length > 0 && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 space-y-1 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-200">
+                <p className="font-semibold">
+                  Completa los siguientes campos obligatorios para continuar:
+                </p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  {stepErrors.map((err) => (
+                    <li key={err}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Navegación entre pasos */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
               <Button
                 type="button"
                 variant="outline"
                 disabled={step === 1}
-                onClick={() => setStep((s) => Math.max(1, s - 1))}
+                onClick={() => {
+                  setStepErrors([]);
+                  setStep((s) => Math.max(1, s - 1));
+                }}
               >
                 <ChevronLeft className="h-4 w-4" />
                 Anterior
               </Button>
 
               {step < 5 ? (
-                <Button type="button" onClick={() => setStep((s) => Math.min(5, s + 1))}>
+                <Button type="button" onClick={handleNextStep}>
                   Siguiente Paso
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               ) : (
                 <Button type="submit" variant="success" disabled={submitting}>
                   <ShieldCheck className="h-4 w-4" />
-                  {submitting ? 'Firmando y enviando...' : 'Firmar Ley 1581 y Finalizar Pre-Ingreso'}
+                  {submitting
+                    ? 'Firmando y enviando...'
+                    : isCorrectionMode
+                      ? 'Guardar Corrección y Reenviar a TH'
+                      : 'Firmar Ley 1581 y Finalizar Pre-Ingreso'}
                 </Button>
               )}
             </div>
