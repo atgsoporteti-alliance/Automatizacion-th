@@ -34,18 +34,22 @@ export class StorageService {
   private bucketEnsured = false;
 
   constructor(private readonly config: ConfigService) {
-    this.endpoint = this.config.get<string>('S3_ENDPOINT', 'http://localhost:9000');
-    this.bucket = this.config.get<string>('S3_BUCKET', 'alliance');
+    this.endpoint = this.config.get<string>('S3_ENDPOINT', 'http://localhost:9000').trim();
+    this.bucket = this.config.get<string>('S3_BUCKET', 'alliance').trim();
 
     this.s3Client = new S3Client({
       endpoint: this.endpoint,
-      region: this.config.get<string>('S3_REGION', 'us-west-2'),
-      forcePathStyle: this.config.get<string>('S3_FORCE_PATH_STYLE', 'true') === 'true',
+      region: this.config.get<string>('S3_REGION', 'us-west-2').trim(),
+      forcePathStyle: this.config.get<string>('S3_FORCE_PATH_STYLE', 'true').trim() === 'true',
       credentials: {
-        accessKeyId: this.config.get<string>('S3_ACCESS_KEY', 'minioadmin'),
-        secretAccessKey: this.config.get<string>('S3_SECRET_KEY', 'minioadmin123'),
+        accessKeyId: this.config.get<string>('S3_ACCESS_KEY', 'minioadmin').trim(),
+        secretAccessKey: this.config.get<string>('S3_SECRET_KEY', 'minioadmin123').trim(),
       },
     });
+  }
+
+  public getBucketName(): string {
+    return this.bucket;
   }
 
   private async ensureBucketExists(): Promise<void> {
@@ -94,9 +98,8 @@ export class StorageService {
     try {
       await this.s3Client.send(putCommand);
     } catch (error) {
-      // Fallback para MinIO local si el bucket aún no existía
       const msg = error instanceof Error ? error.message : String(error);
-      if (msg.includes('NoSuchBucket')) {
+      if (msg.includes('NoSuchBucket') || msg.includes('Bucket not found')) {
         await this.ensureBucketExists();
         await this.s3Client.send(putCommand);
       } else {

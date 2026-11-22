@@ -210,9 +210,10 @@ export class PreOnboardingService {
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Error subiendo archivo a S3: ${msg}`);
+      const bucket = this.storageService.getBucketName();
+      this.logger.error(`Error subiendo archivo a S3 (bucket=${bucket}): ${msg}`);
       throw new BadRequestException(
-        `No se pudo guardar el archivo en Storage S3 (${msg}). Verifica las variables S3_ENDPOINT, S3_BUCKET y credenciales.`,
+        `No se pudo guardar el archivo en Storage S3 (bucket="${bucket}": ${msg}). Verifica que S3_BUCKET sea "alliance" y las credenciales S3 en Render.`,
       );
     }
   }
