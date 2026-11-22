@@ -16,13 +16,16 @@ git push origin main
 
 ---
 
-## Paso 2: Desplegar Backend (`apps/api`) en Render o Railway
-1. Crea un nuevo **Web Service** conectado a tu repositorio.
-2. Configura **Docker** apuntando a `apps/api/Dockerfile` (Contexto de build: raíz `.`).
-3. Configura las variables de entorno en Render/Railway:
-   - `NODE_ENV=production`
+## Paso 2: Desplegar Backend (`apps/api`) en Render
+1. En Render crea un **Web Service** conectado a tu repositorio (o importa `render.yaml` como Blueprint).
+2. En **Build & Start** (si lo creas manualmente como **Node**):
+   - **Build Command:** `npm install && npm run build:api`
+   - **Start Command:** `npm run start:api`
+   *(No uses `npm run build` en Render porque ese script compila también el frontend `apps/web`).*
+3. Configura las variables de entorno en Render:
+   - `NODE_ENV=production` *(Importante: déjalo exactamente en `production`)*
    - `DATABASE_URL=postgresql://postgres.lyvnakpcmknesqxlvawq:[TU-PASSWORD-URL-ENCODED]@aws-1-us-west-2.pooler.supabase.com:5432/postgres`
-   - `WEB_URL=https://tu-app.vercel.app` (actualízalo luego de crear Vercel)
+   - `WEB_URL=https://tu-app.vercel.app` *(o `.netlify.app`; puedes separar múltiples URLs por coma)*
    - `JWT_SECRET=cambia-este-secreto-en-uat`
    - `HELPDESK_MOCK_ENABLED=true`
    - `SUPABASE_URL=https://lyvnakpcmknesqxlvawq.supabase.co`

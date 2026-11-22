@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: alliance-hcm-api
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build:packages && npm run build --workspace=@alliance-hcm/api
+    startCommand: node apps/api/dist/main.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HELPDESK_MOCK_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_DEV_AUTH_BYPASS
+        value: "true"
+      - key: CORPORATE_EMAIL_DOMAIN
+        value: alliance.com.co
+      - key: DATABASE_URL
+        sync: false
+      - key: WEB_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false

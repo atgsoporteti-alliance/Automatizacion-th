@@ -4,7 +4,7 @@ import { InternalRole, ROLE_HOME_ROUTES } from '@alliance-hcm/shared';
 
 const PUBLIC_PATHS = ['/login', '/pre-ingreso'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
