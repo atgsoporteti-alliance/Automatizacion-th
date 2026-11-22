@@ -1,0 +1,18 @@
+# Environment files (never upload secrets)
+.env
+.env.*
+
+# Dependencies & build outputs
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/*.tsbuildinfo
+coverage
+
+# Local tooling & VCS
+.git
+.vercel
+.netlify
+.vscode
+infra

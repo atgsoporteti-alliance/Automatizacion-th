@@ -33,7 +33,10 @@ async function bootstrap() {
       }
       if (
         allowedOrigins.includes(origin) ||
-        origin.endsWith('automatizacion-th-web.netlify.app')
+        origin.endsWith('automatizacion-th-web.netlify.app') ||
+        origin === 'https://automatizacion-th-web.vercel.app' ||
+        (origin.startsWith('https://automatizacion-th-') &&
+          origin.endsWith('-thiarth-3ds-projects.vercel.app'))
       ) {
         return callback(null, true);
       }
