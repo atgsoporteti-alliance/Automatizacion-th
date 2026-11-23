@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  ArrowLeft,
   Bell,
   Calendar,
   Check,
-  CheckCircle2,
   Clock,
   Download,
   ExternalLink,
@@ -19,11 +20,13 @@ import {
   Video,
 } from 'lucide-react';
 import {
+  CANDIDATE_PORTAL_VISIBILITY_DAYS,
   CANDIDATE_STAGE_LABELS,
   CandidateStage,
   MEETING_STATUS_LABELS,
+  computeCandidatePortalVisibility,
 } from '@alliance-hcm/shared';
-import { apiClient, API_BASE } from '@/lib/api';
+import { apiClient, API_BASE, PublicCandidatePortalResponse } from '@/lib/api';
 import { DocumentPreviewModal } from './document-preview-modal';
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/primitives';
 
@@ -44,23 +47,305 @@ const STAGE_ORDER: Record<CandidateStage, number> = {
   REJECTED: -1,
 };
 
+type DemoScenario = 'SELECTION' | 'PRE_ONBOARDING' | 'HIRED_15D' | 'EXPIRED';
+
+const DEMO_SCENARIOS: Array<{ id: DemoScenario; label: string }> = [
+  { id: 'SELECTION', label: '1. Selección y CV' },
+  { id: 'PRE_ONBOARDING', label: '2. Pre-Registro y Devolución' },
+  { id: 'HIRED_15D', label: '3. Contratado (15d)' },
+  { id: 'EXPIRED', label: '4. Día 16 (Expirado)' },
+];
+
+interface DemoCvState {
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  uploadedAt: string;
+  objectUrl: string | null;
+}
+
+const SAMPLE_PDF_BYTES = `%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
+4 0 obj << /Length 138 >> stream
+BT /F1 16 Tf 50 760 Td (Hoja de Vida Demo - Camila Andrea Suarez) Tj
+0 -26 Td /F1 11 Tf (Cargo: Analista de Operaciones Alliance | Documento de prueba UAT) Tj ET
+endstream endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000430 00000 n 
+trailer << /Size 6 /Root 1 0 R >>
+startxref
+500
+%%EOF`;
+
+function buildDemoPortalResponse(params: {
+  scenario: DemoScenario;
+  nowMs: number;
+  demoCv: DemoCvState;
+  readIds: Set<string>;
+  extraNotification?: {
+    id: string;
+    title: string;
+    message: string;
+    createdAt: string;
+  } | null;
+}): PublicCandidatePortalResponse {
+  const { scenario, nowMs, demoCv, readIds, extraNotification } = params;
+  const dayMs = 24 * 60 * 60 * 1000;
+  const baseIso = new Date(nowMs).toISOString();
+
+  const hiringApprovedAt =
+    scenario === 'HIRED_15D'
+      ? new Date(nowMs - 3 * dayMs)
+      : scenario === 'EXPIRED'
+        ? new Date(nowMs - (CANDIDATE_PORTAL_VISIBILITY_DAYS + 1) * dayMs)
+        : null;
+
+  const visibility = computeCandidatePortalVisibility(hiringApprovedAt, new Date(nowMs));
+
+  if (scenario === 'EXPIRED' || visibility.isExpired) {
+    return {
+      expired: true,
+      candidateName: 'Camila Andrea Suárez (Demo)',
+      appliedRole: 'Analista de Operaciones Customer',
+      visibility,
+      message: `El acceso temporal de ${CANDIDATE_PORTAL_VISIBILITY_DAYS} días posteriores a la aprobación de contratación ha finalizado. Tu expediente continúa resguardado internamente por Talento Humano.`,
+    };
+  }
+
+  const stage: CandidateStage =
+    scenario === 'HIRED_15D'
+      ? 'HIRED_APPROVED'
+      : scenario === 'PRE_ONBOARDING'
+        ? 'PRE_ONBOARDING'
+        : 'IN_SELECTION';
+
+  const notifications = [
+    ...(extraNotification
+      ? [
+          {
+            id: extraNotification.id,
+            processId: 'demo-proc',
+            type: 'CV_UPLOADED' as const,
+            title: extraNotification.title,
+            message: extraNotification.message,
+            isRead: readIds.has(extraNotification.id),
+            createdAt: extraNotification.createdAt,
+          },
+        ]
+      : []),
+    ...(scenario === 'HIRED_15D'
+      ? [
+          {
+            id: 'demo-notif-hired',
+            processId: 'demo-proc',
+            type: 'HIRING_APPROVED' as const,
+            title: 'Contratación aprobada por Talento Humano',
+            message: `Talento Humano aprobó tu contratación. Este resumen temporal estará disponible durante ${CANDIDATE_PORTAL_VISIBILITY_DAYS} días.`,
+            isRead: readIds.has('demo-notif-hired'),
+            createdAt: new Date(nowMs - 3 * dayMs).toISOString(),
+          },
+        ]
+      : []),
+    ...(scenario === 'PRE_ONBOARDING' || scenario === 'HIRED_15D'
+      ? [
+          {
+            id: 'demo-notif-mod',
+            processId: 'demo-proc',
+            type: 'MODIFICATION' as const,
+            title:
+              scenario === 'PRE_ONBOARDING'
+                ? 'Corrección solicitada en Pre-Registro'
+                : 'Pre-Registro aprobado y enviado a DSI',
+            message:
+              scenario === 'PRE_ONBOARDING'
+                ? 'TH devolvió tu registro temporalmente: "Por favor confirma tu EPS actual y adjunta nuevamente tu cédula legible."'
+                : 'Tus 24 campos, anexos y firma Ley 1581 fueron aprobados por Talento Humano.',
+            isRead: readIds.has('demo-notif-mod'),
+            createdAt: new Date(nowMs - 2 * dayMs).toISOString(),
+          },
+        ]
+      : []),
+    {
+      id: 'demo-notif-meet',
+      processId: 'demo-proc',
+      type: 'MEETING' as const,
+      title: 'Nueva reunión: Entrevista Técnica con Líder de Área',
+      message: 'Programada modalidad virtual con Mateo Saldarriaga.',
+      isRead: readIds.has('demo-notif-meet'),
+      createdAt: new Date(nowMs - 4 * dayMs).toISOString(),
+    },
+    {
+      id: 'demo-notif-cv',
+      processId: 'demo-proc',
+      type: 'CV_UPLOADED' as const,
+      title: 'Hoja de vida recibida en Selección',
+      message: `Se registró "${demoCv.fileName}" para revisión del analista de Talento Humano.`,
+      isRead: readIds.has('demo-notif-cv'),
+      createdAt: new Date(nowMs - 6 * dayMs).toISOString(),
+    },
+  ];
+
+  return {
+    expired: false,
+    visibility,
+    process: {
+      id: 'demo-proc',
+      candidateName: 'Camila Andrea Suárez (Demo)',
+      candidateEmail: 'candidato.demo@correo.com',
+      nationalId: '1020304050',
+      appliedRole: 'Analista de Operaciones Customer',
+      stage,
+      stageLabel: CANDIDATE_STAGE_LABELS[stage],
+      cv: {
+        fileName: demoCv.fileName,
+        mimeType: demoCv.mimeType,
+        fileSize: demoCv.fileSize,
+        uploadedAt: demoCv.uploadedAt || baseIso,
+      },
+      preOnboarding: {
+        enabled: scenario === 'PRE_ONBOARDING' || scenario === 'HIRED_15D',
+        preOnboardingUrl: '/pre-ingreso/demo',
+        workflowStep:
+          scenario === 'HIRED_15D'
+            ? 'IT_PROVISIONING'
+            : scenario === 'PRE_ONBOARDING'
+              ? 'CANDIDATE_PENDING'
+              : null,
+        workflowStepLabel:
+          scenario === 'HIRED_15D'
+            ? 'Aprovisionamiento IT / DSI'
+            : scenario === 'PRE_ONBOARDING'
+              ? 'Pendiente corrección del candidato'
+              : null,
+        correctionNote:
+          scenario === 'PRE_ONBOARDING'
+            ? 'Por favor confirma tu EPS actual y adjunta nuevamente tu cédula legible.'
+            : null,
+        submittedAt: scenario === 'HIRED_15D' ? new Date(nowMs - 4 * dayMs).toISOString() : null,
+        updatedAt: baseIso,
+        documentsCount: scenario === 'HIRED_15D' ? 3 : scenario === 'PRE_ONBOARDING' ? 2 : 0,
+        hasHabeasDataSigned: scenario === 'HIRED_15D',
+        operationalArea: scenario === 'HIRED_15D' ? 'CUSTOMER' : null,
+      },
+      meetings: [
+        {
+          id: 'demo-meet-1',
+          processId: 'demo-proc',
+          title: 'Entrevista Inicial Talento Humano',
+          meetingType: 'Entrevista TH',
+          scheduledAt: new Date(nowMs - 5 * dayMs).toISOString(),
+          meetingUrl: 'https://meet.google.com/alliance-th-demo',
+          location: 'Virtual · Google Meet',
+          interviewerName: 'Valeria Quintero (TH)',
+          status: 'COMPLETED',
+          notes: 'Validación de perfil, disponibilidad y competencias.',
+          createdAt: baseIso,
+          updatedAt: baseIso,
+        },
+        {
+          id: 'demo-meet-2',
+          processId: 'demo-proc',
+          title: 'Entrevista Técnica y Líder Operativo',
+          meetingType: 'Entrevista Técnica',
+          scheduledAt: new Date(nowMs + 2 * dayMs).toISOString(),
+          meetingUrl: 'https://meet.google.com/alliance-dsi-demo',
+          location: 'Virtual · Google Meet',
+          interviewerName: 'Mateo Saldarriaga (Líder Área)',
+          status: 'SCHEDULED',
+          notes: 'Prueba práctica operativa de 45 minutos.',
+          createdAt: baseIso,
+          updatedAt: baseIso,
+        },
+      ],
+      notifications,
+      unreadCount: notifications.filter((n) => !n.isRead).length,
+    },
+  };
+}
+
 export function CandidatePortalDashboard({ token }: { token: string }) {
   const queryClient = useQueryClient();
+  const isDemoMode =
+    token === 'demo' && process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS !== 'false';
+
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  const { data, isLoading, error, refetch } = useQuery({
+  // Estado interactivo del simulador UAT (solo para /candidato/demo)
+  const [demoScenario, setDemoScenario] = useState<DemoScenario>('PRE_ONBOARDING');
+  const [demoNowMs, setDemoNowMs] = useState<number>(Date.UTC(2026, 10, 22, 15, 0, 0));
+  const [demoReadIds, setDemoReadIds] = useState<Set<string>>(
+    () => new Set(['demo-notif-cv', 'demo-notif-meet']),
+  );
+  const [demoExtraNotif, setDemoExtraNotif] = useState<{
+    id: string;
+    title: string;
+    message: string;
+    createdAt: string;
+  } | null>(null);
+  const [demoCv, setDemoCv] = useState<DemoCvState>({
+    fileName: 'Hoja_de_Vida_Camila_Suarez.pdf',
+    mimeType: 'application/pdf',
+    fileSize: 184320,
+    uploadedAt: '2026-11-16T15:00:00.000Z',
+    objectUrl: null,
+  });
+
+  useEffect(() => {
+    if (!isDemoMode) return;
+    setDemoNowMs(Date.now());
+    const blob = new Blob([SAMPLE_PDF_BYTES], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    setDemoCv((prev) => (prev.objectUrl ? prev : { ...prev, objectUrl: url }));
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [isDemoMode]);
+
+  const { data: liveData, isLoading, error, refetch } = useQuery({
     queryKey: ['candidate-portal', token],
     queryFn: () => apiClient.getPublicCandidatePortal(token),
+    enabled: !isDemoMode,
   });
 
   const cvMutation = useMutation({
-    mutationFn: (file: File) => apiClient.uploadCandidateCv(token, file),
+    mutationFn: async (file: File) => {
+      if (isDemoMode) {
+        const localUrl = URL.createObjectURL(file);
+        const nowIso = new Date().toISOString();
+        setDemoCv({
+          fileName: file.name,
+          mimeType: file.type || 'application/pdf',
+          fileSize: file.size,
+          uploadedAt: nowIso,
+          objectUrl: localUrl,
+        });
+        setDemoExtraNotif({
+          id: `demo-cv-${Date.now()}`,
+          title: 'Hoja de vida actualizada (Demo)',
+          message: `Archivo "${file.name}" cargado en la vista previa del candidato.`,
+          createdAt: nowIso,
+        });
+        return { cvFileName: file.name };
+      }
+      return apiClient.uploadCandidateCv(token, file);
+    },
     onSuccess: (updated) => {
       setUploadError(null);
       setUploadSuccess(`Hoja de vida "${updated.cvFileName}" guardada correctamente.`);
-      void queryClient.invalidateQueries({ queryKey: ['candidate-portal', token] });
+      if (!isDemoMode) {
+        void queryClient.invalidateQueries({ queryKey: ['candidate-portal', token] });
+      }
     },
     onError: (err) => {
       setUploadSuccess(null);
@@ -69,13 +354,78 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
   });
 
   const markReadMutation = useMutation({
-    mutationFn: () => apiClient.markCandidateNotificationsRead(token),
+    mutationFn: async () => {
+      if (isDemoMode) {
+        setDemoReadIds(
+          new Set([
+            'demo-notif-cv',
+            'demo-notif-meet',
+            'demo-notif-mod',
+            'demo-notif-hired',
+            ...(demoExtraNotif ? [demoExtraNotif.id] : []),
+          ]),
+        );
+        return { marked: 1 };
+      }
+      return apiClient.markCandidateNotificationsRead(token);
+    },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['candidate-portal', token] });
+      if (!isDemoMode) {
+        void queryClient.invalidateQueries({ queryKey: ['candidate-portal', token] });
+      }
     },
   });
 
-  if (isLoading) {
+  const demoData = useMemo(() => {
+    if (!isDemoMode) return undefined;
+    return buildDemoPortalResponse({
+      scenario: demoScenario,
+      nowMs: demoNowMs,
+      demoCv,
+      readIds: demoReadIds,
+      extraNotification: demoExtraNotif,
+    });
+  }, [isDemoMode, demoScenario, demoNowMs, demoCv, demoReadIds, demoExtraNotif]);
+
+  const data = isDemoMode ? demoData : liveData;
+
+  const demoBanner = isDemoMode ? (
+    <Card className="border-dashed border-zinc-300 dark:border-zinc-700">
+      <CardContent className="p-3.5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">Modo Vista de Candidato · UAT</Badge>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              Cambia de escenario para probar todas las vistas y funcionalidades sin crear datos reales.
+            </span>
+          </div>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Volver a roles
+          </Link>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {DEMO_SCENARIOS.map((sc) => (
+            <Button
+              key={sc.id}
+              type="button"
+              size="sm"
+              variant={demoScenario === sc.id ? 'default' : 'outline'}
+              onClick={() => setDemoScenario(sc.id)}
+            >
+              {sc.label}
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  ) : null;
+
+  if (!isDemoMode && isLoading) {
     return (
       <Card className="mx-auto max-w-xl">
         <CardContent className="p-8 text-center space-y-2">
@@ -87,7 +437,7 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
     );
   }
 
-  if (error || !data) {
+  if ((!isDemoMode && error) || !data) {
     return (
       <Card className="mx-auto max-w-xl">
         <CardHeader className="text-center">
@@ -106,46 +456,51 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
   // Vista estricta de expiración (después de 15 días tras aprobación de contratación por TH)
   if (data.expired || !data.process) {
     return (
-      <Card className="mx-auto max-w-xl">
-        <CardHeader className="text-center space-y-2">
-          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            <Lock className="h-5 w-5" />
-          </div>
-          <CardTitle className="text-lg">Acceso temporal finalizado</CardTitle>
-          <CardDescription>
-            {data.candidateName ? `${data.candidateName} · ` : ''}
-            {data.appliedRole ?? 'Proceso de Selección Alliance'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-center">
-          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-            {data.message ??
-              'La ventana de visualización de 15 días posteriores a la aprobación de contratación ha finalizado.'}
-          </p>
-          {data.visibility?.hiringApprovedAt && data.visibility?.expiresAt && (
-            <div className="rounded-md border border-zinc-200/80 divide-y divide-zinc-200/80 text-xs text-left dark:border-zinc-800/80 dark:divide-zinc-800/80">
-              <div className="flex justify-between px-3.5 py-2">
-                <span className="text-zinc-500">Contratación aprobada por TH</span>
-                <span>{new Date(data.visibility.hiringApprovedAt).toLocaleDateString('es-CO')}</span>
-              </div>
-              <div className="flex justify-between px-3.5 py-2">
-                <span className="text-zinc-500">Vigencia del portal (15 días)</span>
-                <span>Expiró el {new Date(data.visibility.expiresAt).toLocaleDateString('es-CO')}</span>
-              </div>
+      <div className="space-y-5">
+        {demoBanner}
+        <Card className="mx-auto max-w-xl">
+          <CardHeader className="text-center space-y-2">
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+              <Lock className="h-5 w-5" />
             </div>
-          )}
-          <p className="text-[11px] text-zinc-400">
-            Tu expediente permanece resguardado internamente por Talento Humano.
-          </p>
-        </CardContent>
-      </Card>
+            <CardTitle className="text-lg">Acceso temporal finalizado</CardTitle>
+            <CardDescription>
+              {data.candidateName ? `${data.candidateName} · ` : ''}
+              {data.appliedRole ?? 'Proceso de Selección Alliance'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-center">
+            <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+              {data.message ??
+                'La ventana de visualización de 15 días posteriores a la aprobación de contratación ha finalizado.'}
+            </p>
+            {data.visibility?.hiringApprovedAt && data.visibility?.expiresAt && (
+              <div className="rounded-md border border-zinc-200/80 divide-y divide-zinc-200/80 text-xs text-left dark:border-zinc-800/80 dark:divide-zinc-800/80">
+                <div className="flex justify-between px-3.5 py-2">
+                  <span className="text-zinc-500">Contratación aprobada por TH</span>
+                  <span>{new Date(data.visibility.hiringApprovedAt).toLocaleDateString('es-CO')}</span>
+                </div>
+                <div className="flex justify-between px-3.5 py-2">
+                  <span className="text-zinc-500">Vigencia del portal (15 días)</span>
+                  <span>Expiró el {new Date(data.visibility.expiresAt).toLocaleDateString('es-CO')}</span>
+                </div>
+              </div>
+            )}
+            <p className="text-[11px] text-zinc-400">
+              Tu expediente permanece resguardado internamente por Talento Humano.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   const proc = data.process;
   const currentIdx = STAGE_ORDER[proc.stage];
-  const cvUrl = `${API_BASE}/candidate-portal/public/${encodeURIComponent(token)}/cv/content`;
-  const cvDownloadUrl = `${cvUrl}?download=1`;
+  const cvUrl = isDemoMode
+    ? demoCv.objectUrl ?? ''
+    : `${API_BASE}/candidate-portal/public/${encodeURIComponent(token)}/cv/content`;
+  const cvDownloadUrl = isDemoMode ? cvUrl : `${cvUrl}?download=1`;
   const isImageCv = Boolean(proc.cv?.mimeType?.startsWith('image/'));
   const isPdfCv =
     proc.cv?.mimeType === 'application/pdf' ||
@@ -154,6 +509,7 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
   const preOnboardingHref = (() => {
     const raw = proc.preOnboarding.preOnboardingUrl;
     if (!raw || typeof window === 'undefined') return raw;
+    if (raw.startsWith('/')) return raw;
     try {
       const u = new URL(raw);
       return `${window.location.origin}${u.pathname}${u.search}`;
@@ -164,6 +520,8 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
 
   return (
     <div className="space-y-6">
+      {demoBanner}
+
       {/* Encabezado y etapa actual */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -187,7 +545,15 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
           </p>
         </div>
 
-        <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (isDemoMode) setDemoNowMs(Date.now());
+            else void refetch();
+          }}
+        >
           <RefreshCw className="h-3.5 w-3.5" />
           Actualizar
         </Button>
@@ -296,7 +662,7 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
 
               {proc.cv && (
                 <div className="rounded-md border border-zinc-200/80 bg-zinc-50/60 p-3 space-y-2.5 dark:border-zinc-800/80 dark:bg-zinc-950/60">
-                  {(isImageCv || isPdfCv) && (
+                  {cvUrl && (isImageCv || isPdfCv) && (
                     <div className="overflow-hidden rounded border border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-900">
                       {isImageCv ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -310,23 +676,26 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
                     <div className="min-w-0">
                       <p className="font-medium truncate">{proc.cv.fileName}</p>
                       <p className="text-[11px] text-zinc-500">
-                        {Math.max(1, Math.round(proc.cv.fileSize / 1024))} KB · Guardado en Supabase
+                        {Math.max(1, Math.round(proc.cv.fileSize / 1024))} KB ·{' '}
+                        {isDemoMode ? 'Vista previa local UAT' : 'Guardado en Supabase'}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Button type="button" size="sm" variant="outline" onClick={() => setPreviewOpen(true)}>
-                        <Eye className="h-3.5 w-3.5" />
-                        Ver
-                      </Button>
-                      <a
-                        href={cvDownloadUrl}
-                        download={proc.cv.fileName ?? 'hoja-de-vida.pdf'}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-[#0f0f12] dark:text-zinc-200 dark:hover:bg-zinc-900"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        Descargar
-                      </a>
-                    </div>
+                    {cvUrl && (
+                      <div className="flex items-center gap-1.5">
+                        <Button type="button" size="sm" variant="outline" onClick={() => setPreviewOpen(true)}>
+                          <Eye className="h-3.5 w-3.5" />
+                          Ver
+                        </Button>
+                        <a
+                          href={cvDownloadUrl}
+                          download={proc.cv.fileName ?? 'hoja-de-vida.pdf'}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-[#0f0f12] dark:text-zinc-200 dark:hover:bg-zinc-900"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Descargar
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -388,10 +757,22 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
                   )}
                 </>
               ) : (
-                <p className="text-xs text-zinc-500">
-                  Talento Humano habilitará tu formulario de pre-registro una vez avances en las
-                  entrevistas de selección.
-                </p>
+                <div className="space-y-2.5">
+                  <p className="text-xs text-zinc-500">
+                    Talento Humano habilitará tu formulario de pre-registro una vez avances en las
+                    entrevistas de selección.
+                  </p>
+                  {isDemoMode && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setDemoScenario('PRE_ONBOARDING')}
+                    >
+                      Ver escenario con Pre-Registro habilitado
+                    </Button>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -528,7 +909,7 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
         </div>
       </div>
 
-      {proc.cv && (
+      {proc.cv && cvUrl && (
         <DocumentPreviewModal
           open={previewOpen}
           fileName={proc.cv.fileName ?? 'hoja-de-vida.pdf'}

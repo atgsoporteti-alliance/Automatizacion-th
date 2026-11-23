@@ -241,6 +241,24 @@ export default function LoginPage() {
                   </span>
                 </button>
               ))}
+              <button
+                type="button"
+                disabled={loadingRoleEmail !== null}
+                onClick={() => router.push('/candidato/demo')}
+                className="sm:col-span-2 flex items-center justify-between gap-2 rounded-md border border-dashed border-zinc-300 bg-white px-3 py-2 text-left transition-colors hover:border-zinc-500 hover:bg-zinc-50 disabled:opacity-50 cursor-pointer dark:border-zinc-700 dark:bg-[#0f0f12] dark:hover:border-zinc-500 dark:hover:bg-zinc-900"
+              >
+                <div className="min-w-0">
+                  <span className="block text-xs font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                    Vista de Candidato (Portal y Selección)
+                  </span>
+                  <span className="block text-[11px] text-zinc-400 truncate">
+                    candidato.demo@correo.com · CV, reuniones, pre-registro y regla 15 días
+                  </span>
+                </div>
+                <Badge variant="outline" className="shrink-0">
+                  Demo Portal
+                </Badge>
+              </button>
             </div>
           </div>
         )}

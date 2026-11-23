@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -94,6 +96,8 @@ const STEPS = [
 const DRAFT_KEY_PREFIX = 'alliance-hcm-preonboarding-draft-';
 
 export function PreOnboardingWizard({ token }: { token: string }) {
+  const isDemoMode =
+    token === 'demo' && process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS !== 'false';
   const [step, setStep] = useState(1);
   const [maxStepReached, setMaxStepReached] = useState(1);
   const [tokenState, setTokenState] = useState<'VERIFYING' | 'VALID' | 'INVALID'>('VERIFYING');
@@ -161,8 +165,58 @@ export function PreOnboardingWizard({ token }: { token: string }) {
   const watchedValues = form.watch();
   const computedAge = watchedValues.birthDate ? calculateAge(watchedValues.birthDate) : 0;
 
-  // Validar Magic Link JWT contra el backend al cargar
+  // Validar Magic Link JWT contra el backend al cargar (o modo demo UAT)
   useEffect(() => {
+    if (isDemoMode) {
+      setTokenState('VALID');
+      setInvitedCandidateName('Camila Andrea Suárez (Demo)');
+      setIsCorrectionMode(true);
+      setCorrectionNote(
+        'Vista previa de devolución TH: "Por favor confirma tu EPS actual y adjunta nuevamente tu cédula legible."',
+      );
+      form.reset({
+        ...form.getValues(),
+        fullName: 'Camila Andrea Suárez Pardo',
+        preferredNameCredentials: 'Camila Suárez',
+        nationalId: '1020304050',
+        idIssuePlace: 'Bogotá D.C.',
+        birthDate: '1997-06-14',
+        birthPlace: 'Bogotá D.C.',
+        maritalStatus: 'SOLTERO',
+        address: 'Calle 100 # 15-40 Apto 402',
+        neighborhoodCity: 'Chicó · Bogotá D.C.',
+        phone: '3104567890',
+        personalEmail: 'candidato.demo@correo.com',
+        hasChildren: false,
+        childrenCount: 0,
+        shirtSize: 'M',
+        educationLevel: 'PROFESIONAL',
+        lastAcademicTitle: 'Ingeniería Industrial',
+        eps: 'Sura EPS',
+        pensionFund: '',
+        severanceFund: '',
+        hasBancolombiaAccount: true,
+        emergencyContactName: 'Marta Pardo',
+        emergencyContactRelationship: 'Madre',
+        emergencyContactPhone: '3112233445',
+        habeasDataAccepted: false,
+        signatureDataUrl: '',
+        otpCode: '',
+      });
+      setDocuments([
+        {
+          documentType: 'NATIONAL_ID_PDF',
+          fileName: 'Cedula_Camila_Suarez_Demo.pdf',
+          mimeType: 'application/pdf',
+          fileSize: 98400,
+          s3Key: 'demo/national-id.pdf',
+          s3Url: '/demo/national-id.pdf',
+        },
+      ]);
+      setMaxStepReached(5);
+      return;
+    }
+
     let active = true;
     setTokenState('VERIFYING');
     apiClient
@@ -250,6 +304,10 @@ export function PreOnboardingWizard({ token }: { token: string }) {
 
   // Validación en tiempo real de cédula sin duplicados / detección de reintegros
   useEffect(() => {
+    if (isDemoMode) {
+      setDuplicateCheck(null);
+      return;
+    }
     const nationalId = watchedValues.nationalId?.trim();
     if (!nationalId || nationalId.length < 6) {
       setDuplicateCheck(null);
@@ -269,7 +327,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
     }, 450);
 
     return () => clearTimeout(timer);
-  }, [watchedValues.nationalId, watchedValues.personalEmail]);
+  }, [watchedValues.nationalId, watchedValues.personalEmail, isDemoMode]);
 
   const handleFileUpload = async (
     file: File | null,
@@ -294,6 +352,22 @@ export function PreOnboardingWizard({ token }: { token: string }) {
         fileSize: file.size,
       },
     }));
+
+    if (isDemoMode) {
+      setDocuments((prev) => [
+        ...prev.filter((d) => d.documentType !== documentType),
+        {
+          documentType,
+          fileName: file.name,
+          mimeType,
+          fileSize: file.size,
+          s3Key: `demo/${documentType.toLowerCase()}-${file.name}`,
+          s3Url: localObjectUrl,
+        },
+      ]);
+      setUploadingDoc(null);
+      return;
+    }
 
     try {
       const uploaded = await apiClient.uploadPreOnboardingFile(
@@ -425,6 +499,10 @@ export function PreOnboardingWizard({ token }: { token: string }) {
       return;
     }
     setSubmitError(null);
+    if (isDemoMode) {
+      setOtpSentInfo({ sent: true, devOtp: '123456' });
+      return;
+    }
     try {
       const res = await apiClient.sendOtp(watchedValues.personalEmail, watchedValues.phone);
       setOtpSentInfo(res);
@@ -533,6 +611,19 @@ export function PreOnboardingWizard({ token }: { token: string }) {
 
     setSubmitting(true);
     try {
+      if (isDemoMode) {
+        setReceipt({
+          employeeId: 'demo-emp-uat',
+          workflowId: 'demo-wf-uat',
+          isRehire: false,
+          computedAge: calculateAge(values.birthDate),
+          consentReceipt: {
+            documentSha256Hash: 'demo-sha256-ley1581-simulado-uat',
+            policyVersion: HABEAS_DATA_POLICY_VERSION,
+          },
+        });
+        return;
+      }
       const res = await apiClient.submitPreOnboarding({
         ...values,
         pensionFund: values.pensionFund?.trim() ?? '',
@@ -588,9 +679,13 @@ export function PreOnboardingWizard({ token }: { token: string }) {
           <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
             <CheckCircle2 className="h-6 w-6" />
           </div>
-          <CardTitle className="text-lg">Pre-Ingreso registrado</CardTitle>
+          <CardTitle className="text-lg">
+            {isDemoMode ? 'Pre-Ingreso validado (Vista Previa UAT)' : 'Pre-Ingreso registrado'}
+          </CardTitle>
           <CardDescription>
-            Tu expediente de 24 campos y firma electrónica Ley 1581 fueron enviados a Talento Humano.
+            {isDemoMode
+              ? 'Validación de 24 campos, documentos y firma Ley 1581 simulada sin modificar datos reales.'
+              : 'Tu expediente de 24 campos y firma electrónica Ley 1581 fueron enviados a Talento Humano.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -623,6 +718,17 @@ export function PreOnboardingWizard({ token }: { token: string }) {
               Reintegro vinculado automáticamente al expediente histórico
             </Badge>
           )}
+          {isDemoMode && (
+            <div className="flex justify-center pt-1">
+              <Link
+                href="/candidato/demo"
+                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Volver al Portal del Candidato
+              </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -630,6 +736,21 @@ export function PreOnboardingWizard({ token }: { token: string }) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      {isDemoMode && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-zinc-300 px-3.5 py-2 text-xs dark:border-zinc-700">
+          <span className="text-zinc-600 dark:text-zinc-400">
+            <strong>Modo Vista Previa UAT:</strong> explora los 5 pasos, validaciones obligatorias y firma Ley 1581 sin crear registros reales.
+          </span>
+          <Link
+            href="/candidato/demo"
+            className="inline-flex items-center gap-1.5 font-medium text-zinc-900 hover:underline dark:text-zinc-100"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Volver al Portal del Candidato
+          </Link>
+        </div>
+      )}
+
       {/* Encabezado y barra de progreso */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -669,15 +790,13 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                 type="button"
                 disabled={!unlocked}
                 onClick={() => handleSelectStepTab(s.number)}
-                className={`rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${
-                  !unlocked ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-                } ${
-                  current
+                className={`rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${!unlocked ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                  } ${current
                     ? 'border-zinc-900 bg-zinc-900 text-white font-medium dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
                     : completed
                       ? 'border-zinc-200 bg-white text-zinc-900 hover:border-zinc-400 dark:border-zinc-800 dark:bg-[#0f0f12] dark:text-zinc-100'
                       : 'border-transparent text-zinc-400 dark:text-zinc-500'
-                }`}
+                  }`}
               >
                 <span className="block text-[11px] opacity-75">Paso {s.number}</span>
                 <span className="hidden sm:block truncate font-medium">{s.title}</span>
@@ -719,13 +838,12 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                   </div>
                   {duplicateCheck && !isCorrectionMode && (
                     <div
-                      className={`mt-1.5 rounded-md px-2.5 py-2 text-xs flex items-start gap-2 ${
-                        !duplicateCheck.exists
-                          ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                          : duplicateCheck.isRehire
-                            ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300'
-                            : 'bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                      }`}
+                      className={`mt-1.5 rounded-md px-2.5 py-2 text-xs flex items-start gap-2 ${!duplicateCheck.exists
+                        ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : duplicateCheck.isRehire
+                          ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300'
+                          : 'bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                        }`}
                     >
                       {duplicateCheck.exists && !duplicateCheck.isRehire ? (
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -829,11 +947,10 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                           key={size}
                           type="button"
                           onClick={() => form.setValue('shirtSize', size)}
-                          className={`h-9 rounded-md border text-xs font-medium transition-colors cursor-pointer ${
-                            active
-                              ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
-                              : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300'
-                          }`}
+                          className={`h-9 rounded-md border text-xs font-medium transition-colors cursor-pointer ${active
+                            ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                            : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300'
+                            }`}
                         >
                           {size}
                         </button>
@@ -950,7 +1067,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                               {uploadingDoc === 'BANK_CERTIFICATE'
                                 ? 'Subiendo a Supabase Storage (alliance)...'
                                 : documents.find((d) => d.documentType === 'BANK_CERTIFICATE')
-                                    ?.fileName ?? 'Haz clic para seleccionar archivo'}
+                                  ?.fileName ?? 'Haz clic para seleccionar archivo'}
                             </span>
                           </div>
                         </div>
