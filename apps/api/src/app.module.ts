@@ -6,6 +6,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { DatabaseModule } from './common/database/database.module';
 import { AuditModule } from './common/audit/audit.module';
 import { AuditInterceptor } from './common/audit/audit.interceptor';
+import { MailModule } from './common/mail/mail.module';
 import { StorageModule } from './common/storage/storage.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SupabaseAuthGuard } from './modules/auth/guards/supabase-auth.guard';
@@ -39,6 +40,7 @@ import { CandidatePortalModule } from './modules/candidate-portal/candidate-port
     }),
     DatabaseModule,
     AuditModule,
+    MailModule,
     StorageModule,
     AuthModule,
     AdminModule,

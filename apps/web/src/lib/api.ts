@@ -366,7 +366,7 @@ export const apiClient = {
     candidateEmail?: string;
     nationalId?: string;
   }) =>
-    apiFetch<{ token: string; magicLink: string; expiresIn: string }>(
+    apiFetch<{ token: string; magicLink: string; expiresIn: string; emailSent?: boolean }>(
       '/pre-onboarding/magic-link',
       {
         method: 'POST',
@@ -395,10 +395,13 @@ export const apiClient = {
       }>;
     }>(`/pre-onboarding/verify/${encodeURIComponent(token)}`),
   sendOtp: (email: string, phone?: string) =>
-    apiFetch<{ sent: boolean; devOtp?: string }>('/pre-onboarding/otp/send', {
-      method: 'POST',
-      body: JSON.stringify({ email, phone }),
-    }),
+    apiFetch<{ sent: boolean; emailSent?: boolean; email?: string; devOtp?: string }>(
+      '/pre-onboarding/otp/send',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email, phone }),
+      },
+    ),
   createPresignedUrl: (payload: {
     fileName: string;
     contentType: string;

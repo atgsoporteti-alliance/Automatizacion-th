@@ -50,9 +50,12 @@ export default function ThDashboardPage() {
 
   // Generador de Magic Link seguro para candidatos
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
   const [generatedLink, setGeneratedLink] = useState<{
     magicLink: string;
     expiresIn: string;
+    emailSent?: boolean;
   } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -233,11 +236,16 @@ export default function ThDashboardPage() {
   });
 
   const magicLinkMutation = useMutation({
-    mutationFn: () => apiClient.generateMagicLink(),
+    mutationFn: () =>
+      apiClient.generateMagicLink({
+        candidateName: inviteName.trim() || undefined,
+        candidateEmail: inviteEmail.trim() || undefined,
+      }),
     onSuccess: (res) => {
       setGeneratedLink({
         magicLink: normalizePortalLink(res.magicLink),
         expiresIn: res.expiresIn,
+        emailSent: res.emailSent,
       });
       setCopiedLink(false);
     },
@@ -279,7 +287,7 @@ export default function ThDashboardPage() {
                 <div>
                   <CardTitle>Enlace seguro de pre-ingreso (JWT 72h)</CardTitle>
                   <CardDescription>
-                    El candidato diligenciará los 24 campos sin acceso al HCM interno.
+                    Opcionalmente ingresa el correo del candidato para enviarlo por Gmail de forma automática.
                   </CardDescription>
                 </div>
                 <Button
@@ -288,8 +296,27 @@ export default function ThDashboardPage() {
                   onClick={() => magicLinkMutation.mutate()}
                 >
                   <Link2 className="h-3.5 w-3.5" />
-                  {magicLinkMutation.isPending ? 'Generando...' : 'Crear enlace'}
+                  {magicLinkMutation.isPending ? 'Generando...' : 'Crear y enviar enlace'}
                 </Button>
+              </div>
+              <div className="grid gap-3 pt-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Nombre del candidato (opcional)</Label>
+                  <Input
+                    value={inviteName}
+                    onChange={(e) => setInviteName(e.target.value)}
+                    placeholder="Laura Marcela Gómez"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px]">Correo para envío automático (opcional)</Label>
+                  <Input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="candidato@correo.com"
+                  />
+                </div>
               </div>
             </CardHeader>
             {generatedLink && (
@@ -298,6 +325,7 @@ export default function ThDashboardPage() {
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="font-medium text-emerald-700 dark:text-emerald-400">
                       Activo · Expira en {generatedLink.expiresIn}
+                      {generatedLink.emailSent ? ' · Enviado por correo' : ''}
                     </span>
                     <div className="flex items-center gap-1.5">
                       <Button type="button" size="sm" variant="outline" onClick={handleCopyLink}>

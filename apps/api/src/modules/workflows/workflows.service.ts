@@ -19,6 +19,7 @@ import {
 } from '@alliance-hcm/shared';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
+import { MailService } from '../../common/mail/mail.service';
 import { resolveFrontendOrigin } from '../../common/utils/web-url.util';
 import { CandidatePortalService } from '../candidate-portal/candidate-portal.service';
 import { RuleEngineService } from '../rules/rule-engine.service';
@@ -40,6 +41,7 @@ export class WorkflowsService {
     @Optional() private readonly jwtService?: JwtService,
     @Optional() private readonly config?: ConfigService,
     @Optional() private readonly candidatePortalService?: CandidatePortalService,
+    @Optional() private readonly mailService?: MailService,
   ) {}
 
   async findAll(
@@ -438,10 +440,18 @@ export class WorkflowsService {
       step: 'CANDIDATE_PENDING',
     });
 
+    const emailRes = await this.mailService?.sendPreOnboardingReturnEmail({
+      to: workflow.employee.personalEmail,
+      candidateName: workflow.employee.fullName,
+      correctionNote: dto.reason,
+      correctionMagicLink,
+    });
+
     return {
       workflow: updatedWorkflow,
       correctionMagicLink,
       correctionNote: dto.reason,
+      emailSent: Boolean(emailRes?.sent),
     };
   }
 }

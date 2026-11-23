@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -25,6 +26,7 @@ import {
 } from '@alliance-hcm/shared';
 import { AuditService } from '../../common/audit/audit.service';
 import { DatabaseService } from '../../common/database/database.service';
+import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { resolveFrontendOrigin } from '../../common/utils/web-url.util';
 import {
@@ -42,6 +44,7 @@ export class CandidatePortalService {
     private readonly storageService: StorageService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    @Optional() private readonly mailService?: MailService,
   ) {}
 
   private buildUrls(accessToken: string, preOnboardingToken: string | null, requestOrigin?: string) {
@@ -179,9 +182,18 @@ export class CandidatePortalService {
       },
     });
 
+    const urls = this.buildUrls(created.accessToken, null, requestOrigin);
+    const emailRes = await this.mailService?.sendCandidatePortalInviteEmail({
+      to: created.candidateEmail,
+      candidateName: created.candidateName,
+      appliedRole: created.appliedRole,
+      portalUrl: urls.portalUrl,
+    });
+
     return {
       ...created,
-      ...this.buildUrls(created.accessToken, null, requestOrigin),
+      ...urls,
+      emailSent: Boolean(emailRes?.sent),
       visibility: computeCandidatePortalVisibility(null),
     };
   }
@@ -235,6 +247,19 @@ export class CandidatePortalService {
       metadata: { meetingId: meeting.id, scheduledAt: meeting.scheduledAt.toISOString() },
     });
 
+    await this.mailService?.sendCandidateMeetingEmail({
+      to: proc.candidateEmail,
+      candidateName: proc.candidateName,
+      title: meeting.title,
+      meetingType: meeting.meetingType,
+      scheduledAtLabel: formattedDate,
+      meetingUrl: meeting.meetingUrl,
+      location: meeting.location,
+      interviewerName: meeting.interviewerName,
+      notes: meeting.notes,
+      isUpdate: false,
+    });
+
     await this.auditService.record({
       actorId,
       action: 'CANDIDATE_MEETING_CREATED',
@@ -278,6 +303,28 @@ export class CandidatePortalService {
       message: `Estado cambiado a ${MEETING_STATUS_LABELS[dto.status]}.${updated.notes ? ` Nota: ${updated.notes}` : ''}`,
       metadata: { meetingId: updated.id, status: updated.status },
     });
+
+    const proc = await this.database.db.query.candidateProcesses.findFirst({
+      where: eq(candidateProcesses.id, existing.processId),
+    });
+    if (proc) {
+      await this.mailService?.sendCandidateMeetingEmail({
+        to: proc.candidateEmail,
+        candidateName: proc.candidateName,
+        title: updated.title,
+        meetingType: updated.meetingType,
+        scheduledAtLabel: nextScheduledAt.toLocaleString('es-CO', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+        statusLabel: MEETING_STATUS_LABELS[dto.status],
+        meetingUrl: updated.meetingUrl,
+        location: updated.location,
+        interviewerName: updated.interviewerName,
+        notes: updated.notes,
+        isUpdate: true,
+      });
+    }
 
     await this.auditService.record({
       actorId,
@@ -327,6 +374,16 @@ export class CandidatePortalService {
         'Talento Humano habilitó tu formulario de Pre-Registro (24 campos, documentos y firma Ley 1581). Puedes completarlo desde este portal.',
     });
 
+    const urls = this.buildUrls(updated.accessToken, preOnboardingToken, requestOrigin);
+    if (urls.preOnboardingUrl) {
+      await this.mailService?.sendPreOnboardingEnabledEmail({
+        to: updated.candidateEmail,
+        candidateName: updated.candidateName,
+        preOnboardingUrl: urls.preOnboardingUrl,
+        portalUrl: urls.portalUrl,
+      });
+    }
+
     await this.auditService.record({
       actorId,
       action: 'CANDIDATE_PRE_ONBOARDING_ENABLED',
@@ -338,7 +395,7 @@ export class CandidatePortalService {
     return {
       process: updated,
       preOnboardingToken,
-      ...this.buildUrls(updated.accessToken, preOnboardingToken, requestOrigin),
+      ...urls,
     };
   }
 
@@ -439,6 +496,15 @@ export class CandidatePortalService {
           hiringApprovedAt: approvedAt.toISOString(),
           candidateAccessExpiresAt: expiresAt.toISOString(),
         },
+      });
+
+      const urls = this.buildUrls(proc.accessToken, proc.preOnboardingToken);
+      await this.mailService?.sendHiringApprovedEmail({
+        to: proc.candidateEmail,
+        candidateName: proc.candidateName,
+        expiresAtLabel: expiryFormatted,
+        portalUrl: urls.portalUrl,
+        visibilityDays: CANDIDATE_PORTAL_VISIBILITY_DAYS,
       });
 
       await this.auditService.record({

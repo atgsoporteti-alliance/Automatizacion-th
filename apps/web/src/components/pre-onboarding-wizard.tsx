@@ -120,7 +120,12 @@ export function PreOnboardingWizard({ token }: { token: string }) {
     objectUrl: string;
   } | null>(null);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
-  const [otpSentInfo, setOtpSentInfo] = useState<{ sent: boolean; devOtp?: string } | null>(null);
+  const [otpSentInfo, setOtpSentInfo] = useState<{
+    sent: boolean;
+    emailSent?: boolean;
+    email?: string;
+    devOtp?: string;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<{
@@ -1160,14 +1165,16 @@ export function PreOnboardingWizard({ token }: { token: string }) {
 
                   {otpSentInfo?.sent && (
                     <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                      OTP enviado correctamente.{' '}
+                      {otpSentInfo.emailSent
+                        ? `Código OTP enviado al correo ${otpSentInfo.email ?? watchedValues.personalEmail}. Revisa tu bandeja de entrada o spam.`
+                        : 'Código OTP generado en modo UAT.'}{' '}
                       {otpSentInfo.devOtp && <strong>Código DEV: {otpSentInfo.devOtp}</strong>}
                     </div>
                   )}
 
                   <Input
                     maxLength={6}
-                    placeholder="Ingresa los 6 dígitos (en dev también funciona 123456)"
+                    placeholder="Ingresa los 6 dígitos enviados a tu correo"
                     {...form.register('otpCode')}
                   />
                 </div>

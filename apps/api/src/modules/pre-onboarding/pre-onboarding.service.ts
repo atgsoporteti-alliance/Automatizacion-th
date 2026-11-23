@@ -24,6 +24,7 @@ import {
 } from '@alliance-hcm/shared';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
+import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { resolveFrontendOrigin } from '../../common/utils/web-url.util';
 import { CandidatePortalService } from '../candidate-portal/candidate-portal.service';
@@ -55,6 +56,7 @@ export class PreOnboardingService {
     private readonly storageService: StorageService,
     private readonly employeesService: EmployeesService,
     @Optional() private readonly candidatePortalService?: CandidatePortalService,
+    @Optional() private readonly mailService?: MailService,
   ) { }
 
   async generateMagicLink(dto: GenerateMagicLinkDto, requestOrigin?: string) {
@@ -81,10 +83,21 @@ export class PreOnboardingService {
 
     this.logger.log(`🔗 Magic Link generado (${dto.candidateEmail ?? inviteId}): ${magicLink}`);
 
+    let emailSent = false;
+    if (dto.candidateEmail?.trim()) {
+      const emailRes = await this.mailService?.sendMagicLinkInviteEmail({
+        to: dto.candidateEmail.trim(),
+        candidateName: dto.candidateName?.trim() || undefined,
+        magicLink,
+      });
+      emailSent = Boolean(emailRes?.sent);
+    }
+
     return {
       token,
       magicLink,
       expiresIn: '72h',
+      emailSent,
     };
   }
 
@@ -190,29 +203,39 @@ export class PreOnboardingService {
     }
   }
 
-  sendOtp(dto: SendOtpDto) {
+  async sendOtp(dto: SendOtpDto) {
     const normalizedEmail = dto.email.trim().toLowerCase();
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const ttlSeconds = Number(this.config.get<string>('OTP_TTL_SECONDS', '600'));
+    const ttlMinutes = Math.max(1, Math.round(ttlSeconds / 60));
 
     this.otpStore.set(normalizedEmail, {
       code,
       expiresAt: Date.now() + ttlSeconds * 1000,
     });
 
-    this.logger.log(
-      `🔐 [DEV OTP] Código de verificación para ${normalizedEmail} (${dto.phone ?? 'sin teléfono'}): ${code}`,
-    );
+    const emailResult = await this.mailService?.sendOtpEmail({
+      to: normalizedEmail,
+      code,
+      ttlMinutes,
+    });
+    const emailSent = Boolean(emailResult?.sent);
+
+    if (!emailSent) {
+      this.logger.log(
+        `🔐 [UAT/Fallback OTP] Código de verificación para ${normalizedEmail} (${dto.phone ?? 'sin teléfono'}): ${code}`,
+      );
+    }
 
     const isUatOrDev =
       this.config.get<string>('NODE_ENV', 'development') !== 'production' ||
       this.config.get<string>('NEXT_PUBLIC_DEV_AUTH_BYPASS', 'true') !== 'false';
     return {
       sent: true,
+      emailSent,
       email: normalizedEmail,
       expiresInSeconds: ttlSeconds,
-      // En desarrollo / UAT exponemos devOtp para facilitar pruebas E2E sin servidor SMTP
-      ...(isUatOrDev ? { devOtp: code } : {}),
+      ...(!emailSent && isUatOrDev ? { devOtp: code } : {}),
     };
   }
 
@@ -223,7 +246,7 @@ export class PreOnboardingService {
       this.config.get<string>('NODE_ENV', 'development') !== 'production' ||
       this.config.get<string>('NEXT_PUBLIC_DEV_AUTH_BYPASS', 'true') !== 'false';
 
-    if (isUatOrDev && dto.code === '123456') {
+    if (isUatOrDev && !this.mailService?.isConfigured() && dto.code === '123456') {
       const verifiedAt = new Date();
       this.otpStore.set(normalizedEmail, {
         code: '123456',
