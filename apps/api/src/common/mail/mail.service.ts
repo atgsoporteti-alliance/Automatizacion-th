@@ -33,6 +33,7 @@ const RELAY_HTTP_TIMEOUT_MS = 10000;
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly transporter: Transporter | null = null;
+  private readonly smtpUser: string;
   private readonly fromAddress: string;
   private readonly configured: boolean;
   private readonly relayUrl: string | null;
@@ -47,7 +48,8 @@ export class MailService {
     const port = Number(this.config.get<string>('SMTP_PORT', '465'));
     const from = this.config.get<string>('SMTP_FROM', '').trim();
 
-    this.fromAddress = from || (user ? `"Alliance HCM · Talento Humano" <${user}>` : '');
+    this.smtpUser = user;
+    this.fromAddress = from || (user ? `"Alliance HCM Talento Humano" <${user}>` : '');
     this.configured = Boolean(user && pass && host);
 
     const explicitRelayUrl = this.config.get<string>('MAIL_RELAY_URL', '').trim();
@@ -109,7 +111,10 @@ export class MailService {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const sendPromise = this.transporter.sendMail({
-        from: this.fromAddress,
+        from: this.smtpUser
+          ? { name: 'Alliance HCM Talento Humano', address: this.smtpUser }
+          : this.fromAddress,
+        replyTo: this.smtpUser || undefined,
         to: input.to.trim(),
         subject: input.subject,
         text: input.text,
@@ -229,14 +234,11 @@ export class MailService {
   }): string {
     const ctaBlock =
       params.ctaLabel && params.ctaUrl
-        ? `<p style="margin:24px 0 8px 0;">
+        ? `<p style="margin:24px 0 10px 0;">
              <a href="${escapeHtml(params.ctaUrl)}" target="_blank" rel="noreferrer"
                 style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 18px;border-radius:6px;">
                ${escapeHtml(params.ctaLabel)}
              </a>
-           </p>
-           <p style="margin:0;font-size:11px;color:#71717a;word-break:break-all;">
-             Si el botón no abre, copia este enlace: ${escapeHtml(params.ctaUrl)}
            </p>`
         : '';
 

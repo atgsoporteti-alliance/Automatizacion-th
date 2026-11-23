@@ -371,6 +371,7 @@ export const apiClient = {
       magicLink: string;
       expiresIn: string;
       emailSent?: boolean;
+      emailMessageId?: string;
       emailReason?: string;
     }>(
       '/pre-onboarding/magic-link',

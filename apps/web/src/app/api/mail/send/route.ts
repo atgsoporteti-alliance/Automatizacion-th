@@ -89,7 +89,6 @@ export async function POST(request: Request) {
   const pass = (process.env.SMTP_PASS?.trim() ?? '').replace(/\s+/g, '');
   const host = process.env.SMTP_HOST?.trim() || 'smtp.gmail.com';
   const port = Number(process.env.SMTP_PORT || '465');
-  const from = process.env.SMTP_FROM?.trim() || `"Alliance HCM · Talento Humano" <${user}>`;
 
   try {
     const transporter = nodemailer.createTransport({
@@ -103,16 +102,47 @@ export async function POST(request: Request) {
     });
 
     const info = await transporter.sendMail({
-      from,
+      from: { name: 'Alliance HCM Talento Humano', address: user },
+      replyTo: user,
       to,
       subject,
       text,
       html,
     });
 
-    return NextResponse.json({ sent: true, messageId: info.messageId });
+    const accepted = info.accepted?.map(String) ?? [];
+    const rejected = info.rejected?.map(String) ?? [];
+
+    console.info('[MAIL_RELAY]', {
+      to,
+      accepted,
+      rejected,
+      messageId: info.messageId,
+      response: info.response,
+    });
+
+    if (accepted.length === 0 || rejected.length > 0) {
+      return NextResponse.json(
+        {
+          sent: false,
+          reason: `El servidor SMTP rechazó el destinatario: ${rejected.join(', ') || to}`,
+          accepted,
+          rejected,
+          response: info.response,
+        },
+        { status: 502 },
+      );
+    }
+
+    return NextResponse.json({
+      sent: true,
+      messageId: info.messageId,
+      accepted,
+      response: info.response,
+    });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
+    console.error('[MAIL_RELAY_ERROR]', { to, reason });
     return NextResponse.json({ sent: false, reason }, { status: 502 });
   }
 }

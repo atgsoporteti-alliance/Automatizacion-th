@@ -56,6 +56,7 @@ export default function ThDashboardPage() {
     magicLink: string;
     expiresIn: string;
     emailSent?: boolean;
+    emailMessageId?: string;
     emailReason?: string;
     targetEmail?: string;
   } | null>(null);
@@ -251,6 +252,7 @@ export default function ThDashboardPage() {
         magicLink: normalizePortalLink(res.magicLink),
         expiresIn: res.expiresIn,
         emailSent: res.emailSent,
+        emailMessageId: res.emailMessageId,
         emailReason: res.emailReason,
         targetEmail: inviteEmail.trim() || undefined,
       });
@@ -368,6 +370,13 @@ export default function ThDashboardPage() {
                   <code className="block break-all text-[11px] text-zinc-500 dark:text-zinc-400">
                     {generatedLink.magicLink}
                   </code>
+                  {generatedLink.emailSent && generatedLink.targetEmail && (
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Aceptado por Gmail SMTP hacia <strong>{generatedLink.targetEmail}</strong>
+                      {generatedLink.emailMessageId ? ` (${generatedLink.emailMessageId})` : ''}. Si no
+                      aparece en Recibidos, revisa <strong>Spam</strong> o <strong>Promociones</strong>.
+                    </p>
+                  )}
                   {generatedLink.targetEmail && !generatedLink.emailSent && (
                     <p className="text-[11px] text-amber-700 dark:text-amber-400">
                       El enlace se generó correctamente, pero no se pudo enviar al correo (
