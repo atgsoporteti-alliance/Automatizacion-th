@@ -366,7 +366,13 @@ export const apiClient = {
     candidateEmail?: string;
     nationalId?: string;
   }) =>
-    apiFetch<{ token: string; magicLink: string; expiresIn: string; emailSent?: boolean }>(
+    apiFetch<{
+      token: string;
+      magicLink: string;
+      expiresIn: string;
+      emailSent?: boolean;
+      emailReason?: string;
+    }>(
       '/pre-onboarding/magic-link',
       {
         method: 'POST',

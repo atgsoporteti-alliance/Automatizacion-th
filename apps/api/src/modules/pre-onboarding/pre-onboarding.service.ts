@@ -84,6 +84,7 @@ export class PreOnboardingService {
     this.logger.log(`🔗 Magic Link generado (${dto.candidateEmail ?? inviteId}): ${magicLink}`);
 
     let emailSent = false;
+    let emailReason: string | undefined;
     if (dto.candidateEmail?.trim()) {
       const emailRes = await this.mailService?.sendMagicLinkInviteEmail({
         to: dto.candidateEmail.trim(),
@@ -91,6 +92,7 @@ export class PreOnboardingService {
         magicLink,
       });
       emailSent = Boolean(emailRes?.sent);
+      emailReason = emailRes?.reason;
     }
 
     return {
@@ -98,6 +100,7 @@ export class PreOnboardingService {
       magicLink,
       expiresIn: '72h',
       emailSent,
+      ...(emailReason ? { emailReason } : {}),
     };
   }
 

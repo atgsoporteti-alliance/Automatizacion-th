@@ -56,7 +56,10 @@ export default function ThDashboardPage() {
     magicLink: string;
     expiresIn: string;
     emailSent?: boolean;
+    emailReason?: string;
+    targetEmail?: string;
   } | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Devolución al candidato para corrección
@@ -236,18 +239,25 @@ export default function ThDashboardPage() {
   });
 
   const magicLinkMutation = useMutation({
-    mutationFn: () =>
-      apiClient.generateMagicLink({
+    mutationFn: () => {
+      setInviteError(null);
+      return apiClient.generateMagicLink({
         candidateName: inviteName.trim() || undefined,
         candidateEmail: inviteEmail.trim() || undefined,
-      }),
+      });
+    },
     onSuccess: (res) => {
       setGeneratedLink({
         magicLink: normalizePortalLink(res.magicLink),
         expiresIn: res.expiresIn,
         emailSent: res.emailSent,
+        emailReason: res.emailReason,
+        targetEmail: inviteEmail.trim() || undefined,
       });
       setCopiedLink(false);
+    },
+    onError: (err) => {
+      setInviteError(err instanceof Error ? err.message : 'No se pudo generar el enlace.');
     },
   });
 
@@ -318,6 +328,11 @@ export default function ThDashboardPage() {
                   />
                 </div>
               </div>
+              {inviteError && (
+                <div className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                  {inviteError}
+                </div>
+              )}
             </CardHeader>
             {generatedLink && (
               <CardContent>
@@ -325,7 +340,7 @@ export default function ThDashboardPage() {
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="font-medium text-emerald-700 dark:text-emerald-400">
                       Activo · Expira en {generatedLink.expiresIn}
-                      {generatedLink.emailSent ? ' · Enviado por correo' : ''}
+                      {generatedLink.emailSent ? ` · Enviado a ${generatedLink.targetEmail ?? 'correo'}` : ''}
                     </span>
                     <div className="flex items-center gap-1.5">
                       <Button type="button" size="sm" variant="outline" onClick={handleCopyLink}>
@@ -353,6 +368,12 @@ export default function ThDashboardPage() {
                   <code className="block break-all text-[11px] text-zinc-500 dark:text-zinc-400">
                     {generatedLink.magicLink}
                   </code>
+                  {generatedLink.targetEmail && !generatedLink.emailSent && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                      El enlace se generó correctamente, pero no se pudo enviar al correo (
+                      {generatedLink.emailReason ?? 'SMTP no disponible'}). Cópialo y compártelo manualmente.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             )}

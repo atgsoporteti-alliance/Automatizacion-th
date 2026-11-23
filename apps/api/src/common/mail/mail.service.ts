@@ -1,6 +1,8 @@
+import { createHash, createHmac } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer, { Transporter } from 'nodemailer';
+import { DEFAULT_VERCEL_WEB_URL } from '../utils/web-url.util';
 
 export interface SendEmailInput {
   to: string;
@@ -24,12 +26,18 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+const DIRECT_SMTP_HARD_TIMEOUT_MS = 6000;
+const RELAY_HTTP_TIMEOUT_MS = 10000;
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly transporter: Transporter | null = null;
   private readonly fromAddress: string;
   private readonly configured: boolean;
+  private readonly relayUrl: string | null;
+  private readonly relaySecret: string | null;
+  private readonly preferRelayFirst: boolean;
 
   constructor(private readonly config: ConfigService) {
     const user = this.config.get<string>('SMTP_USER', '').trim();
@@ -42,17 +50,43 @@ export class MailService {
     this.fromAddress = from || (user ? `"Alliance HCM · Talento Humano" <${user}>` : '');
     this.configured = Boolean(user && pass && host);
 
+    const explicitRelayUrl = this.config.get<string>('MAIL_RELAY_URL', '').trim();
+    const explicitRelaySecret = this.config.get<string>('MAIL_RELAY_SECRET', '').trim();
+    const derivedSecret =
+      user && pass ? createHash('sha256').update(`${user}:${pass}`).digest('hex') : '';
+
+    this.relaySecret = explicitRelaySecret || derivedSecret || null;
+
+    const isProdOrRender =
+      this.config.get<string>('RENDER', '').toLowerCase() === 'true' ||
+      this.config.get<string>('NODE_ENV', 'development') === 'production';
+
+    this.relayUrl =
+      explicitRelayUrl ||
+      (this.relaySecret && isProdOrRender ? `${DEFAULT_VERCEL_WEB_URL}/api/mail/send` : null);
+
+    // Render Free Tier bloquea puertos SMTP salientes (25/465/587), por lo que en Render/Prod
+    // enviamos primero vía HTTPS (puerto 443) al relay en Vercel y evitamos colgar la petición.
+    this.preferRelayFirst = Boolean(this.relayUrl && this.relaySecret && isProdOrRender);
+
     if (this.configured) {
       this.transporter = nodemailer.createTransport({
         host,
         port,
         secure: port === 465,
+        connectionTimeout: 4500,
+        greetingTimeout: 4500,
+        socketTimeout: 5500,
         auth: {
           user,
           pass,
         },
       });
-      this.logger.log(`Servicio SMTP inicializado (${host}:${port} como ${user})`);
+      this.logger.log(
+        `Servicio SMTP inicializado (${host}:${port} como ${user}${this.preferRelayFirst ? ' · modo HTTPS Relay prioritario' : ''})`,
+      );
+    } else if (this.relayUrl && this.relaySecret) {
+      this.logger.log(`Servicio de correo inicializado vía HTTPS Relay (${this.relayUrl})`);
     } else {
       this.logger.warn(
         'SMTP_USER / SMTP_PASS no configurados; el envío de correos reales quedará inactivo hasta configurarlos.',
@@ -61,34 +95,128 @@ export class MailService {
   }
 
   isConfigured(): boolean {
-    return this.configured && this.transporter !== null;
+    return (
+      (this.configured && this.transporter !== null) ||
+      Boolean(this.relayUrl && this.relaySecret)
+    );
   }
 
-  async sendEmail(input: SendEmailInput): Promise<EmailDispatchResult> {
+  private async sendViaDirectSmtp(input: SendEmailInput): Promise<EmailDispatchResult> {
     if (!this.transporter || !this.configured) {
       return { sent: false, reason: 'SMTP no configurado' };
     }
 
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const sendPromise = this.transporter.sendMail({
+        from: this.fromAddress,
+        to: input.to.trim(),
+        subject: input.subject,
+        text: input.text,
+        html: input.html,
+      });
+
+      const timeoutPromise = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new Error(
+              'Timeout conectando al servidor SMTP (el hosting puede estar bloqueando el puerto 465/587).',
+            ),
+          );
+        }, DIRECT_SMTP_HARD_TIMEOUT_MS);
+      });
+
+      const info = await Promise.race([sendPromise, timeoutPromise]);
+      this.logger.log(`Correo enviado vía SMTP directo a ${input.to} (messageId=${info.messageId})`);
+      return { sent: true, messageId: info.messageId };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Fallo SMTP directo hacia ${input.to}: ${reason}`);
+      return { sent: false, reason };
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  private async sendViaHttpsRelay(input: SendEmailInput): Promise<EmailDispatchResult> {
+    if (!this.relayUrl || !this.relaySecret) {
+      return { sent: false, reason: 'HTTPS Mail Relay no configurado' };
+    }
+
+    const rawBody = JSON.stringify({
+      to: input.to.trim(),
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+    });
+    const timestamp = String(Date.now());
+    const signature = createHmac('sha256', this.relaySecret)
+      .update(`${timestamp}.${rawBody}`)
+      .digest('hex');
+
+    try {
+      const response = await fetch(this.relayUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-mail-ts': timestamp,
+          'x-mail-sig': signature,
+        },
+        body: rawBody,
+        signal: AbortSignal.timeout(RELAY_HTTP_TIMEOUT_MS),
+      });
+
+      const parsed = (await response.json().catch(() => ({}))) as {
+        sent?: boolean;
+        messageId?: string;
+        reason?: string;
+      };
+
+      if (!response.ok || !parsed.sent) {
+        const reason = parsed.reason || `HTTP ${response.status} desde Mail Relay`;
+        this.logger.error(`Error HTTPS Mail Relay hacia ${input.to}: ${reason}`);
+        return { sent: false, reason };
+      }
+
+      this.logger.log(
+        `Correo enviado vía HTTPS Relay a ${input.to} (messageId=${parsed.messageId ?? 'ok'})`,
+      );
+      return { sent: true, messageId: parsed.messageId };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Excepción HTTPS Mail Relay hacia ${input.to}: ${reason}`);
+      return { sent: false, reason };
+    }
+  }
+
+  async sendEmail(input: SendEmailInput): Promise<EmailDispatchResult> {
     const to = input.to.trim();
     if (!to || !to.includes('@')) {
       return { sent: false, reason: 'Destinatario de correo inválido' };
     }
 
-    try {
-      const info = await this.transporter.sendMail({
-        from: this.fromAddress,
-        to,
-        subject: input.subject,
-        text: input.text,
-        html: input.html,
-      });
-      this.logger.log(`Correo enviado a ${to} (messageId=${info.messageId})`);
-      return { sent: true, messageId: info.messageId };
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Error enviando correo SMTP a ${to}: ${reason}`);
-      return { sent: false, reason };
+    if (!this.isConfigured()) {
+      return { sent: false, reason: 'SMTP no configurado' };
     }
+
+    if (this.preferRelayFirst) {
+      const relayResult = await this.sendViaHttpsRelay(input);
+      if (relayResult.sent) {
+        return relayResult;
+      }
+      return relayResult;
+    }
+
+    const directResult = await this.sendViaDirectSmtp(input);
+    if (directResult.sent) {
+      return directResult;
+    }
+
+    if (this.relayUrl && this.relaySecret) {
+      return this.sendViaHttpsRelay(input);
+    }
+
+    return directResult;
   }
 
   private renderLayout(params: {
