@@ -32,7 +32,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthenticatedUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const isPublicCandidateRoute = pathname?.startsWith('/pre-ingreso') ?? false;
+  const isPublicCandidateRoute =
+    (pathname?.startsWith('/pre-ingreso') || pathname?.startsWith('/candidato')) ?? false;
 
   const refreshUser = useCallback(async () => {
     try {

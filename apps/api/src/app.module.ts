@@ -17,6 +17,7 @@ import { PreOnboardingModule } from './modules/pre-onboarding/pre-onboarding.mod
 import { HelpdeskModule } from './modules/helpdesk/helpdesk.module';
 import { WorkflowsModule } from './modules/workflows/workflows.module';
 import { OffboardingModule } from './modules/offboarding/offboarding.module';
+import { CandidatePortalModule } from './modules/candidate-portal/candidate-portal.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { OffboardingModule } from './modules/offboarding/offboarding.module';
     PreOnboardingModule,
     WorkflowsModule,
     OffboardingModule,
+    CandidatePortalModule,
   ],
   providers: [
     {

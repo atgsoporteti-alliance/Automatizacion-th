@@ -20,6 +20,7 @@ import {
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { resolveFrontendOrigin } from '../../common/utils/web-url.util';
+import { CandidatePortalService } from '../candidate-portal/candidate-portal.service';
 import { RuleEngineService } from '../rules/rule-engine.service';
 import { HelpdeskService } from '../helpdesk/helpdesk.service';
 import {
@@ -38,6 +39,7 @@ export class WorkflowsService {
     private readonly helpdeskService: HelpdeskService,
     @Optional() private readonly jwtService?: JwtService,
     @Optional() private readonly config?: ConfigService,
+    @Optional() private readonly candidatePortalService?: CandidatePortalService,
   ) {}
 
   async findAll(
@@ -211,6 +213,14 @@ export class WorkflowsService {
       },
     });
 
+    await this.candidatePortalService?.markHiringApproved({
+      workflowId: workflow.id,
+      employeeId: workflow.employeeId,
+      candidateEmail: workflow.employee.personalEmail,
+      nationalId: workflow.employee.nationalId,
+      actorId,
+    });
+
     return {
       workflow: updatedWorkflow,
       ruleEvaluation: evaluation,
@@ -286,6 +296,17 @@ export class WorkflowsService {
       entityId: workflowId,
       oldValues: { currentStep: 'DSI_LEADER_APPROVAL' },
       newValues: { currentStep: 'HELPDESK_TICKET_CREATED', dsiApprovedBy: dto.approverEmail },
+    });
+
+    await this.candidatePortalService?.syncWorkflowModification({
+      workflowId: workflow.id,
+      employeeId: workflow.employeeId,
+      candidateEmail: workflow.employee.personalEmail,
+      nationalId: workflow.employee.nationalId,
+      type: 'STAGE_CHANGE',
+      title: 'Aprobación técnica Líder DSI completada',
+      message: 'El Líder DSI aprobó tu perfil técnico y se generó el ticket hacia Helpdesk IT.',
+      step: 'HELPDESK_TICKET_CREATED',
     });
 
     return {
@@ -403,6 +424,18 @@ export class WorkflowsService {
       entityId: workflowId,
       oldValues: { currentStep: workflow.currentStep },
       newValues: { currentStep: 'CANDIDATE_PENDING', reason: dto.reason },
+    });
+
+    await this.candidatePortalService?.syncWorkflowModification({
+      workflowId,
+      employeeId: workflow.employeeId,
+      candidateEmail: workflow.employee.personalEmail,
+      nationalId: workflow.employee.nationalId,
+      type: 'MODIFICATION',
+      title: 'Talento Humano devolvió el Pre-Registro para corrección',
+      message: dto.reason,
+      correctionToken: token || undefined,
+      step: 'CANDIDATE_PENDING',
     });
 
     return {

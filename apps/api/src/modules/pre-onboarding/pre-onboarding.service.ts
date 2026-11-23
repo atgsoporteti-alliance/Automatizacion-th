@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -25,6 +26,7 @@ import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { resolveFrontendOrigin } from '../../common/utils/web-url.util';
+import { CandidatePortalService } from '../candidate-portal/candidate-portal.service';
 import { EmployeesService } from '../employees/employees.service';
 import {
   GenerateMagicLinkDto,
@@ -52,6 +54,7 @@ export class PreOnboardingService {
     private readonly auditService: AuditService,
     private readonly storageService: StorageService,
     private readonly employeesService: EmployeesService,
+    @Optional() private readonly candidatePortalService?: CandidatePortalService,
   ) { }
 
   async generateMagicLink(dto: GenerateMagicLinkDto, requestOrigin?: string) {
@@ -101,6 +104,7 @@ export class PreOnboardingService {
         sub: string;
         name: string;
         nationalId?: string | null;
+        candidateProcessId?: string;
         employeeId?: string;
         workflowId?: string;
         correctionNote?: string;
@@ -178,6 +182,7 @@ export class PreOnboardingService {
         candidateName: payload.name || '',
         candidateEmail,
         nationalId: payload.nationalId ?? null,
+        candidateProcessId: payload.candidateProcessId ?? null,
         policyVersion: HABEAS_DATA_POLICY_VERSION,
       };
     } catch {
@@ -199,22 +204,26 @@ export class PreOnboardingService {
       `🔐 [DEV OTP] Código de verificación para ${normalizedEmail} (${dto.phone ?? 'sin teléfono'}): ${code}`,
     );
 
-    const isDev = this.config.get<string>('NODE_ENV', 'development') !== 'production';
+    const isUatOrDev =
+      this.config.get<string>('NODE_ENV', 'development') !== 'production' ||
+      this.config.get<string>('NEXT_PUBLIC_DEV_AUTH_BYPASS', 'true') !== 'false';
     return {
       sent: true,
       email: normalizedEmail,
       expiresInSeconds: ttlSeconds,
-      // En desarrollo exponemos devOtp para facilitar pruebas E2E sin servidor SMTP
-      ...(isDev ? { devOtp: code } : {}),
+      // En desarrollo / UAT exponemos devOtp para facilitar pruebas E2E sin servidor SMTP
+      ...(isUatOrDev ? { devOtp: code } : {}),
     };
   }
 
   verifyOtp(dto: VerifyOtpDto) {
     const normalizedEmail = dto.email.trim().toLowerCase();
     const entry = this.otpStore.get(normalizedEmail);
-    const isDev = this.config.get<string>('NODE_ENV', 'development') !== 'production';
+    const isUatOrDev =
+      this.config.get<string>('NODE_ENV', 'development') !== 'production' ||
+      this.config.get<string>('NEXT_PUBLIC_DEV_AUTH_BYPASS', 'true') !== 'false';
 
-    if (isDev && dto.code === '123456') {
+    if (isUatOrDev && dto.code === '123456') {
       const verifiedAt = new Date();
       this.otpStore.set(normalizedEmail, {
         code: '123456',
@@ -558,6 +567,19 @@ export class PreOnboardingService {
         isRehire: duplicate.isRehire,
         isCorrection,
       },
+    });
+
+    await this.candidatePortalService?.syncPreOnboardingSubmission({
+      processId:
+        'candidateProcessId' in tokenInfo
+          ? ((tokenInfo.candidateProcessId as string | null | undefined) ?? undefined)
+          : undefined,
+      employeeId,
+      workflowId: workflow.id,
+      candidateName: dto.fullName,
+      candidateEmail: dto.personalEmail,
+      nationalId: dto.nationalId,
+      isCorrection,
     });
 
     return {

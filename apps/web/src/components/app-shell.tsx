@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   ClipboardCheck,
@@ -13,8 +14,10 @@ import {
   LogOut,
   Menu,
   Moon,
+  RefreshCw,
   ShieldCheck,
   Sun,
+  UserCheck,
   UserCog,
   UserMinus,
   Users,
@@ -42,6 +45,12 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Talento Humano',
     items: [
+      {
+        href: '/dashboard/candidatos',
+        label: 'Selección y Candidatos',
+        icon: UserCheck,
+        allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN'],
+      },
       {
         href: '/dashboard/th',
         label: 'Validación TH',
@@ -106,6 +115,7 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 const ROUTE_TITLES: Record<string, string> = {
+  '/dashboard/candidatos': 'Talento Humano · Selección y Candidatos',
   '/dashboard/th': 'Talento Humano · Validación',
   '/dashboard/it': 'IT & Helpdesk · Aprovisionamiento',
   '/dashboard/team': 'Líder de Área · Equipo y Puerta DSI',
@@ -116,6 +126,8 @@ const ROUTE_TITLES: Record<string, string> = {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
+  const isFetching = useIsFetching();
   const { theme, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -280,7 +292,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void queryClient.invalidateQueries()}
+              title="Actualizar registros"
+              aria-label="Actualizar registros"
+              className="h-7 px-2 text-xs text-zinc-500"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', isFetching > 0 && 'animate-spin')} />
+              <span className="hidden sm:inline">Actualizar</span>
+            </Button>
             <span className="hidden sm:inline-block text-xs text-zinc-500 dark:text-zinc-400">
               {user ? ROLE_LABELS[user.role] : 'Autenticando...'}
             </span>

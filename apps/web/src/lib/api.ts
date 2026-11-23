@@ -1,9 +1,13 @@
 import {
   AuthenticatedUserProfile,
+  CandidateNotificationType,
+  CandidateStage,
+  CandidateVisibilityStatus,
   ClearanceDepartment,
   ClearanceStatus,
   EmployeeStatus,
   InternalRole,
+  MeetingStatus,
   OperationalArea,
   UserClearanceDepartment,
   UserOperationalArea,
@@ -13,7 +17,7 @@ import {
 } from '@alliance-hcm/shared';
 import { createSupabaseBrowserClient } from './supabase/client';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 export const DEV_ROLE_COOKIE = 'alliance_dev_role_email';
 
 export interface EmployeeRecord {
@@ -132,6 +136,113 @@ export interface AuditLogRecord {
   createdAt: string;
 }
 
+export interface CandidateMeetingRecord {
+  id: string;
+  processId: string;
+  title: string;
+  meetingType: string;
+  scheduledAt: string;
+  meetingUrl: string | null;
+  location: string | null;
+  interviewerName: string | null;
+  status: MeetingStatus;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CandidateNotificationRecord {
+  id: string;
+  processId: string;
+  type: CandidateNotificationType;
+  title: string;
+  message: string;
+  metadata?: Record<string, unknown>;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface CandidateProcessRecord {
+  id: string;
+  accessToken: string;
+  candidateName: string;
+  candidateEmail: string;
+  nationalId: string | null;
+  appliedRole: string | null;
+  stage: CandidateStage;
+  cvFileName: string | null;
+  cvMimeType: string | null;
+  cvFileSize: number;
+  cvS3Key: string | null;
+  cvS3Url: string | null;
+  cvUploadedAt: string | null;
+  preOnboardingToken: string | null;
+  employeeId: string | null;
+  workflowId: string | null;
+  hiringApprovedAt: string | null;
+  candidateAccessExpiresAt: string | null;
+  portalUrl: string;
+  preOnboardingUrl: string | null;
+  visibility: CandidateVisibilityStatus;
+  employee?: {
+    id: string;
+    fullName: string;
+    nationalId: string;
+    personalEmail: string;
+    operationalArea: OperationalArea | null;
+    status: EmployeeStatus;
+  } | null;
+  workflow?: {
+    id: string;
+    currentStep: WorkflowStep;
+    helpdeskTicketId: string | null;
+    notes: string | null;
+    updatedAt: string;
+  } | null;
+  meetings: CandidateMeetingRecord[];
+  notifications: CandidateNotificationRecord[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicCandidatePortalResponse {
+  expired: boolean;
+  candidateName?: string;
+  appliedRole?: string | null;
+  message?: string;
+  visibility: CandidateVisibilityStatus;
+  process?: {
+    id: string;
+    candidateName: string;
+    candidateEmail: string;
+    nationalId: string | null;
+    appliedRole: string | null;
+    stage: CandidateStage;
+    stageLabel: string;
+    cv: {
+      fileName: string | null;
+      mimeType: string | null;
+      fileSize: number;
+      uploadedAt: string | null;
+    } | null;
+    preOnboarding: {
+      enabled: boolean;
+      preOnboardingUrl: string | null;
+      workflowStep: WorkflowStep | null;
+      workflowStepLabel: string | null;
+      correctionNote: string | null;
+      submittedAt: string | null;
+      updatedAt: string | null;
+      documentsCount: number;
+      hasHabeasDataSigned: boolean;
+      operationalArea: OperationalArea | null;
+    };
+    meetings: CandidateMeetingRecord[];
+    notifications: CandidateNotificationRecord[];
+    unreadCount: number;
+  };
+}
+
 export function getDevRoleEmailFromBrowser(): string | null {
   if (typeof document === 'undefined') return null;
   const match = document.cookie
@@ -200,7 +311,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     }
     if (response.status === 401 && typeof window !== 'undefined') {
       const p = window.location.pathname;
-      if (!p.startsWith('/login') && !p.startsWith('/pre-ingreso')) {
+      if (!p.startsWith('/login') && !p.startsWith('/pre-ingreso') && !p.startsWith('/candidato')) {
         window.location.href = `/login?redirect=${encodeURIComponent(p)}`;
       }
     }
@@ -421,4 +532,109 @@ export const apiClient = {
       method: 'PATCH',
       body: JSON.stringify(payload),
     }),
+  getCandidateProcesses: () =>
+    apiFetch<CandidateProcessRecord[]>('/candidate-portal/processes'),
+  createCandidateProcess: (payload: {
+    candidateName: string;
+    candidateEmail: string;
+    nationalId?: string;
+    appliedRole?: string;
+  }) =>
+    apiFetch<CandidateProcessRecord>('/candidate-portal/processes', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateCandidateStage: (
+    processId: string,
+    payload: { stage: CandidateStage; note?: string },
+  ) =>
+    apiFetch<CandidateProcessRecord>(`/candidate-portal/processes/${processId}/stage`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  approveCandidateHiring: (processId: string, note?: string) =>
+    apiFetch<CandidateProcessRecord>(`/candidate-portal/processes/${processId}/approve-hiring`, {
+      method: 'POST',
+      body: JSON.stringify(note ? { note } : {}),
+    }),
+  createCandidateMeeting: (
+    processId: string,
+    payload: {
+      title: string;
+      meetingType?: string;
+      scheduledAt: string;
+      meetingUrl?: string;
+      location?: string;
+      interviewerName?: string;
+      notes?: string;
+    },
+  ) =>
+    apiFetch<CandidateMeetingRecord>(`/candidate-portal/processes/${processId}/meetings`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateCandidateMeeting: (
+    meetingId: string,
+    payload: {
+      status: MeetingStatus;
+      scheduledAt?: string;
+      meetingUrl?: string;
+      notes?: string;
+    },
+  ) =>
+    apiFetch<CandidateMeetingRecord>(`/candidate-portal/meetings/${meetingId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  enableCandidatePreOnboarding: (processId: string) =>
+    apiFetch<{
+      process: CandidateProcessRecord;
+      preOnboardingToken: string;
+      portalUrl: string;
+      preOnboardingUrl: string | null;
+    }>(`/candidate-portal/processes/${processId}/enable-pre-onboarding`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+  getPublicCandidatePortal: (token: string) =>
+    apiFetch<PublicCandidatePortalResponse>(
+      `/candidate-portal/public/${encodeURIComponent(token)}`,
+    ),
+  uploadCandidateCv: async (
+    token: string,
+    file: File,
+  ): Promise<{ cvFileName: string | null; cvS3Key: string | null }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(
+      `${API_BASE}/candidate-portal/public/${encodeURIComponent(token)}/cv`,
+      {
+        method: 'POST',
+        body: formData,
+      },
+    );
+
+    if (!response.ok) {
+      let msg = `Error subiendo hoja de vida (${response.status})`;
+      try {
+        const parsed = (await response.json()) as { message?: string | string[] };
+        if (Array.isArray(parsed.message)) msg = parsed.message.join(', ');
+        else if (parsed.message) msg = parsed.message;
+      } catch {
+        // ignore json parse error
+      }
+      throw new Error(msg);
+    }
+
+    return response.json();
+  },
+  markCandidateNotificationsRead: (token: string) =>
+    apiFetch<{ marked: number }>(
+      `/candidate-portal/public/${encodeURIComponent(token)}/notifications/read`,
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      },
+    ),
 };

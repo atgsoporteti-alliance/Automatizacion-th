@@ -75,6 +75,7 @@ export const clearanceStatusEnum = pgEnum('clearance_status', [
 ]);
 
 export const documentTypeEnum = pgEnum('document_type', [
+  'RESUME_CV',
   'NATIONAL_ID_PDF',
   'ACADEMIC_CERTIFICATE',
   'BANK_CERTIFICATE',
@@ -103,4 +104,29 @@ export const userOperationalAreaEnum = pgEnum('user_operational_area', [
 export const userClearanceDepartmentEnum = pgEnum('user_clearance_department', [
   'FINANCE',
   'FIXED_ASSETS',
+]);
+
+export const candidateStageEnum = pgEnum('candidate_stage', [
+  'REGISTERED',
+  'CV_UPLOADED',
+  'IN_SELECTION',
+  'PRE_ONBOARDING',
+  'HIRED_APPROVED',
+  'REJECTED',
+]);
+
+export const meetingStatusEnum = pgEnum('meeting_status', [
+  'SCHEDULED',
+  'COMPLETED',
+  'RESCHEDULED',
+  'CANCELLED',
+]);
+
+export const candidateNotificationTypeEnum = pgEnum('candidate_notification_type', [
+  'STAGE_CHANGE',
+  'CV_UPLOADED',
+  'MEETING',
+  'PRE_ONBOARDING',
+  'MODIFICATION',
+  'HIRING_APPROVED',
 ]);

@@ -21,7 +21,7 @@ export function CandidateShell({ children }: { children: React.ReactNode }) {
               <Building2 className="h-3.5 w-3.5" />
             </div>
             <span className="text-sm font-semibold tracking-tight">Alliance HCM</span>
-            <span className="hidden sm:inline text-xs text-zinc-400">· Pre-Ingreso</span>
+            <span className="hidden sm:inline text-xs text-zinc-400">· Portal del Candidato</span>
           </div>
 
           <div className="flex items-center gap-2">

@@ -69,6 +69,7 @@ export const CLEARANCE_STATUSES = [
 export type ClearanceStatus = (typeof CLEARANCE_STATUSES)[number];
 
 export const DOCUMENT_TYPES = [
+  'RESUME_CV',
   'NATIONAL_ID_PDF',
   'ACADEMIC_CERTIFICATE',
   'BANK_CERTIFICATE',
@@ -185,3 +186,47 @@ export const WORKFLOW_STEP_LABELS: Record<WorkflowStep, string> = {
   COMPLETED: 'Completado',
   CANCELLED_NO_SHOW: 'Cancelado (No-Show)',
 };
+
+export const CANDIDATE_STAGES = [
+  'REGISTERED',
+  'CV_UPLOADED',
+  'IN_SELECTION',
+  'PRE_ONBOARDING',
+  'HIRED_APPROVED',
+  'REJECTED',
+] as const;
+export type CandidateStage = (typeof CANDIDATE_STAGES)[number];
+
+export const CANDIDATE_STAGE_LABELS: Record<CandidateStage, string> = {
+  REGISTERED: 'Postulado',
+  CV_UPLOADED: 'Hoja de Vida Cargada',
+  IN_SELECTION: 'En Selección y Entrevistas',
+  PRE_ONBOARDING: 'Pre-Registro Habilitado',
+  HIRED_APPROVED: 'Contratación Aprobada (TH)',
+  REJECTED: 'Proceso Cerrado',
+};
+
+export const MEETING_STATUSES = [
+  'SCHEDULED',
+  'COMPLETED',
+  'RESCHEDULED',
+  'CANCELLED',
+] as const;
+export type MeetingStatus = (typeof MEETING_STATUSES)[number];
+
+export const MEETING_STATUS_LABELS: Record<MeetingStatus, string> = {
+  SCHEDULED: 'Programada',
+  COMPLETED: 'Realizada',
+  RESCHEDULED: 'Reprogramada',
+  CANCELLED: 'Cancelada',
+};
+
+export const CANDIDATE_NOTIFICATION_TYPES = [
+  'STAGE_CHANGE',
+  'CV_UPLOADED',
+  'MEETING',
+  'PRE_ONBOARDING',
+  'MODIFICATION',
+  'HIRING_APPROVED',
+] as const;
+export type CandidateNotificationType = (typeof CANDIDATE_NOTIFICATION_TYPES)[number];

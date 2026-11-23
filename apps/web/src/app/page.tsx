@@ -4,6 +4,7 @@ import {
   ClipboardCheck,
   Cpu,
   Link2,
+  UserCheck,
   UserMinus,
 } from 'lucide-react';
 import { AppShell } from '@/components/app-shell';
@@ -17,6 +18,15 @@ import {
 } from '@/components/ui/primitives';
 
 const MODULES = [
+  {
+    href: '/dashboard/candidatos',
+    title: 'Selección & Portal Candidato',
+    subtitle: 'Hoja de Vida, Reuniones & TTL 15d',
+    description:
+      'Crea portales para candidatos: carga de hoja de vida, agenda de entrevistas, pre-registro y vigencia de 15 días tras aprobación TH.',
+    badge: 'Selección TH',
+    icon: UserCheck,
+  },
   {
     href: '/dashboard/th',
     title: 'Consola de Validación TH',

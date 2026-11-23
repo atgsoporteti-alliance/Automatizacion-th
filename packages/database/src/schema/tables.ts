@@ -12,12 +12,15 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 import {
+  candidateNotificationTypeEnum,
+  candidateStageEnum,
   clearanceDepartmentEnum,
   clearanceStatusEnum,
   documentTypeEnum,
   educationLevelEnum,
   employeeStatusEnum,
   maritalStatusEnum,
+  meetingStatusEnum,
   operationalAreaEnum,
   shirtSizeEnum,
   userClearanceDepartmentEnum,
@@ -230,6 +233,95 @@ export const userProfiles = pgTable(
   ],
 );
 
+/**
+ * 8. candidate_processes — Portal de Selección y Seguimiento del Candidato
+ * Visibilidad para el candidato limitada a 15 días después de que TH apruebe su contratación.
+ */
+export const candidateProcesses = pgTable(
+  'candidate_processes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    accessToken: varchar('access_token', { length: 120 }).notNull(),
+    candidateName: varchar('candidate_name', { length: 150 }).notNull(),
+    candidateEmail: varchar('candidate_email', { length: 150 }).notNull(),
+    nationalId: varchar('national_id', { length: 30 }),
+    appliedRole: varchar('applied_role', { length: 150 }),
+    stage: candidateStageEnum('stage').notNull().default('REGISTERED'),
+
+    cvFileName: varchar('cv_file_name', { length: 255 }),
+    cvMimeType: varchar('cv_mime_type', { length: 120 }),
+    cvFileSize: integer('cv_file_size').notNull().default(0),
+    cvS3Key: varchar('cv_s3_key', { length: 500 }),
+    cvS3Url: text('cv_s3_url'),
+    cvUploadedAt: timestamp('cv_uploaded_at', { withTimezone: true }),
+
+    preOnboardingToken: text('pre_onboarding_token'),
+    employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'set null' }),
+    workflowId: uuid('workflow_id').references(() => onboardingOffboardingWorkflows.id, {
+      onDelete: 'set null',
+    }),
+
+    hiringApprovedAt: timestamp('hiring_approved_at', { withTimezone: true }),
+    candidateAccessExpiresAt: timestamp('candidate_access_expires_at', { withTimezone: true }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('candidate_processes_access_token_uidx').on(table.accessToken),
+    index('candidate_processes_email_idx').on(table.candidateEmail),
+    index('candidate_processes_employee_idx').on(table.employeeId),
+    index('candidate_processes_workflow_idx').on(table.workflowId),
+  ],
+);
+
+/**
+ * 9. candidate_meetings — Entrevistas y Reuniones del Proceso de Selección
+ */
+export const candidateMeetings = pgTable(
+  'candidate_meetings',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    processId: uuid('process_id')
+      .notNull()
+      .references(() => candidateProcesses.id, { onDelete: 'cascade' }),
+    title: varchar('title', { length: 150 }).notNull(),
+    meetingType: varchar('meeting_type', { length: 60 }).notNull().default('Entrevista TH'),
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
+    meetingUrl: text('meeting_url'),
+    location: varchar('location', { length: 200 }),
+    interviewerName: varchar('interviewer_name', { length: 150 }),
+    status: meetingStatusEnum('status').notNull().default('SCHEDULED'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index('candidate_meetings_process_id_idx').on(table.processId)],
+);
+
+/**
+ * 10. candidate_notifications — Historial de Notificaciones y Modificaciones del Registro
+ */
+export const candidateNotifications = pgTable(
+  'candidate_notifications',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    processId: uuid('process_id')
+      .notNull()
+      .references(() => candidateProcesses.id, { onDelete: 'cascade' }),
+    type: candidateNotificationTypeEnum('type').notNull(),
+    title: varchar('title', { length: 160 }).notNull(),
+    message: text('message').notNull(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
+    isRead: boolean('is_read').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('candidate_notifications_process_id_idx').on(table.processId),
+    index('candidate_notifications_created_at_idx').on(table.createdAt),
+  ],
+);
+
 export type Employee = typeof employees.$inferSelect;
 export type NewEmployee = typeof employees.$inferInsert;
 export type Workflow = typeof onboardingOffboardingWorkflows.$inferSelect;
@@ -240,3 +332,7 @@ export type EmployeeDocument = typeof employeeDocuments.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type UserProfile = typeof userProfiles.$inferSelect;
 export type NewUserProfile = typeof userProfiles.$inferInsert;
+export type CandidateProcess = typeof candidateProcesses.$inferSelect;
+export type NewCandidateProcess = typeof candidateProcesses.$inferInsert;
+export type CandidateMeeting = typeof candidateMeetings.$inferSelect;
+export type CandidateNotification = typeof candidateNotifications.$inferSelect;
