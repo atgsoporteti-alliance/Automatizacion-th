@@ -287,15 +287,22 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const authHeaders = await getAuthHeaders();
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders,
-      ...(init?.headers ?? {}),
-    },
-    cache: 'no-store',
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+        ...(init?.headers ?? {}),
+      },
+      cache: 'no-store',
+    });
+  } catch {
+    throw new Error(
+      `No se pudo conectar con la API (${API_BASE}). Si estás en local, espera unos segundos a que termine de iniciar el backend en el puerto 4000; si estás en la nube, reintenta en un momento.`,
+    );
+  }
 
   if (!response.ok) {
     const body = await response.text();
@@ -551,7 +558,7 @@ export const apiClient = {
     nationalId?: string;
     appliedRole?: string;
   }) =>
-    apiFetch<CandidateProcessRecord>('/candidate-portal/processes', {
+    apiFetch<CandidateProcessRecord & { emailSent?: boolean }>('/candidate-portal/processes', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

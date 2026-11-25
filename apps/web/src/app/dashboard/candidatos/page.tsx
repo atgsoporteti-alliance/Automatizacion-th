@@ -128,7 +128,11 @@ export default function ThCandidatesPage() {
     error: null,
   });
 
-  const { data: processes = [], isLoading } = useQuery({
+  const {
+    data: processes = [],
+    isLoading,
+    error: queryError,
+  } = useQuery({
     queryKey: ['candidate-processes'],
     queryFn: () => apiClient.getCandidateProcesses(),
   });
@@ -225,7 +229,13 @@ export default function ThCandidatesPage() {
         appliedRole: appliedRole.trim() || undefined,
       }),
     onSuccess: (created) => {
-      setFeedback(`Portal creado para ${created.candidateName}.`);
+      setFeedback(
+        `Portal creado para ${created.candidateName}.${
+          created.emailSent
+            ? ` Invitación enviada a ${created.candidateEmail}.`
+            : ' Copia el enlace para compartirlo con el candidato.'
+        }`,
+      );
       setCandidateName('');
       setCandidateEmail('');
       setNationalId('');
@@ -387,6 +397,14 @@ export default function ThCandidatesPage() {
             </p>
           </div>
         </div>
+
+        {queryError && (
+          <div className="rounded-md border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-700 dark:border-rose-900/70 dark:bg-rose-950/60 dark:text-rose-200">
+            {queryError instanceof Error
+              ? queryError.message
+              : 'No se pudieron consultar los procesos de candidatos.'}
+          </div>
+        )}
 
         {feedback && (
           <div className="flex items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-3.5 py-2 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">

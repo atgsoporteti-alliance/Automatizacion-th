@@ -53,7 +53,7 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
-  await app.listen(port, '0.0.0.0');
+  await app.listen(port);
   logger.log(`🚀 Alliance HCM API corriendo en http://localhost:${port}/api`);
   logger.log(`📚 Documentación Swagger disponible en http://localhost:${port}/api/docs`);
 }

@@ -64,8 +64,7 @@ export class MailService {
       this.config.get<string>('NODE_ENV', 'development') === 'production';
 
     this.relayUrl =
-      explicitRelayUrl ||
-      (this.relaySecret && isProdOrRender ? `${DEFAULT_VERCEL_WEB_URL}/api/mail/send` : null);
+      explicitRelayUrl || (this.relaySecret ? `${DEFAULT_VERCEL_WEB_URL}/api/mail/send` : null);
 
     // Render Free Tier bloquea puertos SMTP salientes (25/465/587), por lo que en Render/Prod
     // enviamos primero vía HTTPS (puerto 443) al relay en Vercel y evitamos colgar la petición.
