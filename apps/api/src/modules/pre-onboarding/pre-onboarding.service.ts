@@ -26,6 +26,7 @@ import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
+import { decodeUploadedFileName } from '../../common/utils/file-header.util';
 import { resolveFrontendOrigin } from '../../common/utils/web-url.util';
 import { CandidatePortalService } from '../candidate-portal/candidate-portal.service';
 import { EmployeesService } from '../employees/employees.service';
@@ -291,17 +292,18 @@ export class PreOnboardingService {
     nationalId?: string;
   }) {
     const folder = `employees/${params.nationalId?.trim() || 'pending'}/${params.documentType.toLowerCase()}`;
+    const fileName = decodeUploadedFileName(params.file.originalname);
     try {
       const uploaded = await this.storageService.uploadObject({
         folder,
-        fileName: params.file.originalname,
+        fileName,
         contentType: params.file.mimetype || 'application/pdf',
         body: params.file.buffer,
       });
 
       return {
         documentType: params.documentType,
-        fileName: params.file.originalname,
+        fileName,
         mimeType: uploaded.mimeType,
         fileSize: uploaded.fileSize,
         s3Key: uploaded.s3Key,

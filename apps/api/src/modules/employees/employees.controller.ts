@@ -9,6 +9,7 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { buildContentDispositionHeader } from '../../common/utils/file-header.util';
 import { EmployeesService } from './employees.service';
 import { UpdateOrganizationalDto } from './dto/update-organizational.dto';
 
@@ -62,7 +63,7 @@ export class EmployeesController {
     const file = await this.employeesService.getDocumentContent(docId, user);
     const disposition = download === '1' || download === 'true' ? 'attachment' : 'inline';
     res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Content-Disposition', `${disposition}; filename="${file.fileName}"`);
+    res.setHeader('Content-Disposition', buildContentDispositionHeader(disposition, file.fileName));
     res.send(file.buffer);
   }
 
@@ -80,7 +81,7 @@ export class EmployeesController {
     const file = await this.employeesService.getSignatureContent(id);
     const disposition = download === '1' || download === 'true' ? 'attachment' : 'inline';
     res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Content-Disposition', `${disposition}; filename="${file.fileName}"`);
+    res.setHeader('Content-Disposition', buildContentDispositionHeader(disposition, file.fileName));
     res.send(file.buffer);
   }
 

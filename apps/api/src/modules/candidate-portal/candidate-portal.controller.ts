@@ -19,6 +19,7 @@ import { AuthenticatedUserProfile } from '@alliance-hcm/shared';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { buildContentDispositionHeader } from '../../common/utils/file-header.util';
 import { CandidatePortalService } from './candidate-portal.service';
 import {
   CreateCandidateMeetingDto,
@@ -142,7 +143,7 @@ export class CandidatePortalController {
     const file = await this.candidatePortalService.getInternalCvContent(id);
     const disposition = download === '1' || download === 'true' ? 'attachment' : 'inline';
     res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Content-Disposition', `${disposition}; filename="${file.fileName}"`);
+    res.setHeader('Content-Disposition', buildContentDispositionHeader(disposition, file.fileName));
     res.send(file.buffer);
   }
 
@@ -193,7 +194,7 @@ export class CandidatePortalController {
     const file = await this.candidatePortalService.getPublicCvContent(token);
     const disposition = download === '1' || download === 'true' ? 'attachment' : 'inline';
     res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Content-Disposition', `${disposition}; filename="${file.fileName}"`);
+    res.setHeader('Content-Disposition', buildContentDispositionHeader(disposition, file.fileName));
     res.send(file.buffer);
   }
 

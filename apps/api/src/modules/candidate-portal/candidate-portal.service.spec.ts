@@ -7,7 +7,10 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
   const createdAt = new Date('2026-11-01T10:00:00.000Z');
   const hiringApprovedAt = new Date('2026-11-05T15:00:00.000Z');
 
-  function makeService(mockProc: Record<string, unknown>) {
+  function makeService(
+    mockProc: Record<string, unknown>,
+    storageMock = { uploadObject: jest.fn(), getObjectBuffer: jest.fn() },
+  ) {
     const dbMock = {
       db: {
         query: {
@@ -30,7 +33,6 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
       },
     };
     const auditMock = { record: jest.fn().mockResolvedValue(undefined) };
-    const storageMock = { uploadObject: jest.fn(), getObjectBuffer: jest.fn() };
     const jwtMock = new JwtService({});
     const configMock = new ConfigService({ NODE_ENV: 'production' });
 
@@ -112,5 +114,61 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
         day15Plus1Min,
       ),
     ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('devuelve Buffer binario crudo y decodifica nombres mojibake al obtener o subir la hoja de vida', async () => {
+    const pdfBytes = Buffer.from('%PDF-1.4\n%test\n');
+    const storageMock = {
+      uploadObject: jest.fn().mockResolvedValue({
+        s3Key: 'candidates/proc-1/cv/doc.pdf',
+        publicUrl: 'https://cdn.example/doc.pdf',
+        mimeType: 'application/pdf',
+        fileSize: pdfBytes.length,
+      }),
+      getObjectBuffer: jest.fn().mockResolvedValue({
+        buffer: pdfBytes,
+        contentType: 'application/pdf',
+      }),
+    };
+
+    const mangledName = Buffer.from('Alliance HCM – Core TH.pdf', 'utf8').toString('latin1');
+    const proc = {
+      id: 'proc-1',
+      accessToken: 'tok-123',
+      candidateEmail: 'laura@gmail.com',
+      stage: 'CV_UPLOADED',
+      cvS3Key: 'candidates/proc-1/cv/doc.pdf',
+      cvFileName: mangledName,
+      cvMimeType: 'application/pdf',
+      createdAt,
+      hiringApprovedAt: null,
+      candidateAccessExpiresAt: null,
+      employee: null,
+      workflow: null,
+      meetings: [],
+      notifications: [],
+    };
+
+    const service = makeService(proc, storageMock);
+
+    const publicFile = await service.getPublicCvContent('tok-123');
+    expect(Buffer.isBuffer(publicFile.buffer)).toBe(true);
+    expect(publicFile.buffer.equals(pdfBytes)).toBe(true);
+    expect(publicFile.fileName).toBe('Alliance HCM – Core TH.pdf');
+
+    const internalFile = await service.getInternalCvContent('proc-1');
+    expect(Buffer.isBuffer(internalFile.buffer)).toBe(true);
+    expect(internalFile.buffer.equals(pdfBytes)).toBe(true);
+    expect(internalFile.fileName).toBe('Alliance HCM – Core TH.pdf');
+
+    await service.uploadCandidateCv('tok-123', {
+      originalname: mangledName,
+      mimetype: 'application/pdf',
+      size: pdfBytes.length,
+      buffer: pdfBytes,
+    });
+    expect(storageMock.uploadObject).toHaveBeenCalledWith(
+      expect.objectContaining({ fileName: 'Alliance HCM – Core TH.pdf' }),
+    );
   });
 });

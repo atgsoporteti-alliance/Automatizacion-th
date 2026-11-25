@@ -28,6 +28,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
+import { decodeUploadedFileName } from '../../common/utils/file-header.util';
 import { resolveFrontendOrigin } from '../../common/utils/web-url.util';
 import {
   CreateCandidateMeetingDto,
@@ -751,9 +752,10 @@ export class CandidatePortalService {
       );
     }
 
+    const fileName = decodeUploadedFileName(file.originalname);
     const uploaded = await this.storageService.uploadObject({
       folder: `candidates/${proc.id}/cv`,
-      fileName: file.originalname,
+      fileName,
       contentType: file.mimetype || 'application/pdf',
       body: file.buffer,
     });
@@ -764,7 +766,7 @@ export class CandidatePortalService {
     const [updated] = await this.database.db
       .update(candidateProcesses)
       .set({
-        cvFileName: file.originalname,
+        cvFileName: fileName,
         cvMimeType: uploaded.mimeType,
         cvFileSize: uploaded.fileSize,
         cvS3Key: uploaded.s3Key,
@@ -780,7 +782,7 @@ export class CandidatePortalService {
       processId: proc.id,
       type: 'CV_UPLOADED',
       title: proc.cvS3Key ? 'Hoja de vida actualizada' : 'Hoja de vida recibida',
-      message: `Se guardó el archivo "${file.originalname}" en Supabase Storage para el proceso de selección.`,
+      message: `Se guardó el archivo "${fileName}" en Supabase Storage para el proceso de selección.`,
     });
 
     await this.auditService.record({
@@ -788,7 +790,7 @@ export class CandidatePortalService {
       action: 'CANDIDATE_CV_UPLOADED',
       entity: 'candidate_processes',
       entityId: proc.id,
-      newValues: { fileName: file.originalname, s3Key: uploaded.s3Key },
+      newValues: { fileName, s3Key: uploaded.s3Key },
     });
 
     return updated;
@@ -809,12 +811,7 @@ export class CandidatePortalService {
       );
     }
 
-    const buffer = await this.storageService.getObjectBuffer(proc.cvS3Key);
-    return {
-      buffer,
-      fileName: proc.cvFileName ?? 'hoja-de-vida.pdf',
-      mimeType: proc.cvMimeType ?? 'application/pdf',
-    };
+    return this.streamStoredCv(proc);
   }
 
   async getInternalCvContent(processId: string) {
@@ -824,11 +821,22 @@ export class CandidatePortalService {
     if (!proc || !proc.cvS3Key) {
       throw new NotFoundException('Hoja de vida no encontrada para este candidato.');
     }
-    const buffer = await this.storageService.getObjectBuffer(proc.cvS3Key);
+    return this.streamStoredCv(proc);
+  }
+
+  private async streamStoredCv(proc: {
+    cvS3Key: string | null;
+    cvFileName: string | null;
+    cvMimeType: string | null;
+  }) {
+    if (!proc.cvS3Key) {
+      throw new NotFoundException('Hoja de vida no encontrada para este candidato.');
+    }
+    const { buffer, contentType } = await this.storageService.getObjectBuffer(proc.cvS3Key);
     return {
       buffer,
-      fileName: proc.cvFileName ?? 'hoja-de-vida.pdf',
-      mimeType: proc.cvMimeType ?? 'application/pdf',
+      fileName: decodeUploadedFileName(proc.cvFileName ?? 'hoja-de-vida.pdf'),
+      mimeType: proc.cvMimeType ?? contentType ?? 'application/pdf',
     };
   }
 
