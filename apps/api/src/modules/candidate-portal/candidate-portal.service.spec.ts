@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { CandidatePortalService } from './candidate-portal.service';
@@ -10,6 +10,10 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
   function makeService(
     mockProc: Record<string, unknown>,
     storageMock = { uploadObject: jest.fn(), getObjectBuffer: jest.fn() },
+    options?: {
+      meeting?: Record<string, unknown> | null;
+      mailService?: { sendCandidateMeetingEmail: jest.Mock };
+    },
   ) {
     const dbMock = {
       db: {
@@ -17,19 +21,24 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
           candidateProcesses: {
             findFirst: jest.fn().mockResolvedValue(mockProc),
           },
+          candidateMeetings: {
+            findFirst: jest.fn().mockResolvedValue(options?.meeting ?? null),
+          },
         },
-        update: jest.fn().mockReturnValue({
-          set: jest.fn().mockReturnValue({
+        update: jest.fn().mockImplementation(() => ({
+          set: jest.fn().mockImplementation((vals: Record<string, unknown>) => ({
             where: jest.fn().mockReturnValue({
-              returning: jest.fn().mockResolvedValue([{ ...mockProc, stage: 'HIRED_APPROVED' }]),
+              returning: jest
+                .fn()
+                .mockResolvedValue([{ ...(options?.meeting ?? mockProc), ...vals }]),
             }),
-          }),
-        }),
-        insert: jest.fn().mockReturnValue({
-          values: jest.fn().mockReturnValue({
-            returning: jest.fn().mockResolvedValue([{ id: 'notif-1' }]),
-          }),
-        }),
+          })),
+        })),
+        insert: jest.fn().mockImplementation(() => ({
+          values: jest.fn().mockImplementation((vals: Record<string, unknown>) => ({
+            returning: jest.fn().mockResolvedValue([{ id: 'row-1', ...vals }]),
+          })),
+        })),
       },
     };
     const auditMock = { record: jest.fn().mockResolvedValue(undefined) };
@@ -42,6 +51,7 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
       storageMock as never,
       jwtMock,
       configMock,
+      options?.mailService as never,
     );
   }
 
@@ -170,5 +180,87 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
     expect(storageMock.uploadObject).toHaveBeenCalledWith(
       expect.objectContaining({ fileName: 'Alliance HCM – Core TH.pdf' }),
     );
+  });
+
+  it('normaliza enlaces de Microsoft Teams y Google Meet al crear y actualizar reuniones', async () => {
+    const mailMock = {
+      sendCandidateMeetingEmail: jest.fn().mockResolvedValue({ sent: true }),
+    };
+    const proc = {
+      id: 'proc-1',
+      accessToken: 'tok-123',
+      candidateName: 'Laura Gómez',
+      candidateEmail: 'laura@gmail.com',
+      stage: 'CV_UPLOADED',
+    };
+    const existingMeeting = {
+      id: 'meet-1',
+      processId: 'proc-1',
+      title: 'Entrevista Técnica',
+      meetingType: 'Entrevista Técnica',
+      scheduledAt: new Date('2026-12-01T15:00:00.000Z'),
+      meetingUrl: null,
+      location: 'Virtual · Google Meet / Teams',
+      interviewerName: 'Carlos Ruiz',
+      status: 'SCHEDULED',
+      notes: null,
+    };
+
+    const service = makeService(proc, undefined, {
+      meeting: existingMeeting,
+      mailService: mailMock,
+    });
+
+    const created = await service.addMeeting(
+      'proc-1',
+      {
+        title: 'Entrevista TH',
+        scheduledAt: '2026-12-01T15:00:00.000Z',
+        meetingUrl: 'teams.microsoft.com/l/meetup-join/19%3ameeting_abc',
+        location: 'Virtual · Google Meet / Teams',
+      },
+      'th-user-1',
+    );
+
+    expect(created.meetingUrl).toBe('https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc');
+    expect(created.location).toBe('Virtual · Microsoft Teams');
+    expect(mailMock.sendCandidateMeetingEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meetingUrl: 'https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc',
+        location: 'Virtual · Microsoft Teams',
+        isUpdate: false,
+      }),
+    );
+
+    const updated = await service.updateMeeting(
+      'meet-1',
+      {
+        meetingUrl: 'meet.google.com/abc-defg-hij',
+      },
+      'th-user-1',
+    );
+
+    expect(updated.status).toBe('SCHEDULED');
+    expect(updated.meetingUrl).toBe('https://meet.google.com/abc-defg-hij');
+    expect(updated.location).toBe('Virtual · Google Meet');
+    expect(mailMock.sendCandidateMeetingEmail).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        meetingUrl: 'https://meet.google.com/abc-defg-hij',
+        location: 'Virtual · Google Meet',
+        isUpdate: true,
+      }),
+    );
+
+    await expect(
+      service.addMeeting(
+        'proc-1',
+        {
+          title: 'Enlace inválido',
+          scheduledAt: '2026-12-01T15:00:00.000Z',
+          meetingUrl: 'esto no es una url',
+        },
+        'th-user-1',
+      ),
+    ).rejects.toThrow(BadRequestException);
   });
 });

@@ -594,9 +594,10 @@ export const apiClient = {
   updateCandidateMeeting: (
     meetingId: string,
     payload: {
-      status: MeetingStatus;
+      status?: MeetingStatus;
       scheduledAt?: string;
       meetingUrl?: string;
+      location?: string;
       notes?: string;
     },
   ) =>

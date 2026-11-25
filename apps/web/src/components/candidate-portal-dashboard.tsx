@@ -23,6 +23,8 @@ import {
   CANDIDATE_PORTAL_VISIBILITY_DAYS,
   CANDIDATE_STAGE_LABELS,
   CandidateStage,
+  detectMeetingPlatform,
+  MEETING_PLATFORM_LABELS,
   MEETING_STATUS_LABELS,
   computeCandidatePortalVisibility,
 } from '@alliance-hcm/shared';
@@ -795,57 +797,83 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
                   Aún no tienes reuniones programadas. Te notificaremos aquí cuando se agenden.
                 </p>
               ) : (
-                proc.meetings.map((m) => (
-                  <div
-                    key={m.id}
-                    className="rounded-md border border-zinc-200/80 p-3 space-y-2 text-xs dark:border-zinc-800/80"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-zinc-950 dark:text-zinc-100">{m.title}</p>
-                        <p className="text-[11px] text-zinc-500">
-                          {m.meetingType} ·{' '}
-                          {new Date(m.scheduledAt).toLocaleString('es-CO', {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
-                          })}
-                        </p>
+                proc.meetings.map((m) => {
+                  const platform = m.meetingUrl
+                    ? detectMeetingPlatform(m.meetingUrl, m.location)
+                    : null;
+                  const joinLabel =
+                    platform === 'TEAMS'
+                      ? 'Unirse por Microsoft Teams'
+                      : platform === 'MEET'
+                        ? 'Unirse por Google Meet'
+                        : 'Abrir enlace de reunión';
+
+                  return (
+                    <div
+                      key={m.id}
+                      className="rounded-md border border-zinc-200/80 p-3 space-y-2 text-xs dark:border-zinc-800/80"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="font-medium text-zinc-950 dark:text-zinc-100">{m.title}</p>
+                            {platform && platform !== 'OTHER' && (
+                              <Badge variant={platform === 'TEAMS' ? 'default' : 'success'}>
+                                {MEETING_PLATFORM_LABELS[platform]}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-zinc-500">
+                            {m.meetingType} ·{' '}
+                            {new Date(m.scheduledAt).toLocaleString('es-CO', {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            })}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            m.status === 'COMPLETED'
+                              ? 'success'
+                              : m.status === 'CANCELLED'
+                                ? 'danger'
+                                : m.status === 'RESCHEDULED'
+                                  ? 'warning'
+                                  : 'secondary'
+                          }
+                        >
+                          {MEETING_STATUS_LABELS[m.status]}
+                        </Badge>
                       </div>
-                      <Badge
-                        variant={
-                          m.status === 'COMPLETED'
-                            ? 'success'
-                            : m.status === 'CANCELLED'
-                              ? 'danger'
-                              : m.status === 'RESCHEDULED'
-                                ? 'warning'
-                                : 'secondary'
-                        }
-                      >
-                        {MEETING_STATUS_LABELS[m.status]}
-                      </Badge>
+                      {(m.interviewerName || m.location) && (
+                        <p className="text-[11px] text-zinc-500">
+                          {m.interviewerName ? `Con: ${m.interviewerName}` : ''}
+                          {m.interviewerName && m.location ? ' · ' : ''}
+                          {m.location ?? ''}
+                        </p>
+                      )}
+                      {m.notes && <p className="text-zinc-600 dark:text-zinc-400">{m.notes}</p>}
+                      {m.meetingUrl && m.status !== 'CANCELLED' ? (
+                        <a
+                          href={m.meetingUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-7 items-center gap-1.5 rounded border border-zinc-200 bg-zinc-50 px-2.5 text-[11px] font-medium text-zinc-900 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                        >
+                          <Video className="h-3 w-3" />
+                          {joinLabel}
+                          <ExternalLink className="h-3 w-3 opacity-70" />
+                        </a>
+                      ) : (
+                        m.status !== 'CANCELLED' && (
+                          <p className="text-[11px] text-zinc-400">
+                            Enlace de Teams / Meet pendiente de asignar por Talento Humano.
+                          </p>
+                        )
+                      )}
                     </div>
-                    {(m.interviewerName || m.location) && (
-                      <p className="text-[11px] text-zinc-500">
-                        {m.interviewerName ? `Con: ${m.interviewerName}` : ''}
-                        {m.interviewerName && m.location ? ' · ' : ''}
-                        {m.location ?? ''}
-                      </p>
-                    )}
-                    {m.notes && <p className="text-zinc-600 dark:text-zinc-400">{m.notes}</p>}
-                    {m.meetingUrl && m.status !== 'CANCELLED' && (
-                      <a
-                        href={m.meetingUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex h-7 items-center gap-1.5 rounded border border-zinc-200 px-2.5 text-[11px] font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
-                      >
-                        <Video className="h-3 w-3" />
-                        Abrir enlace de reunión
-                      </a>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               )}
             </CardContent>
           </Card>

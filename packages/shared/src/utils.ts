@@ -93,3 +93,86 @@ export function computeCandidatePortalVisibility(
     daysRemaining,
   };
 }
+
+export type MeetingPlatform = 'TEAMS' | 'MEET' | 'OTHER';
+
+export const MEETING_PLATFORM_LABELS: Record<MeetingPlatform, string> = {
+  TEAMS: 'Microsoft Teams',
+  MEET: 'Google Meet',
+  OTHER: 'Enlace virtual',
+};
+
+export const MEETING_PLATFORM_LOCATIONS: Record<MeetingPlatform, string> = {
+  TEAMS: 'Virtual · Microsoft Teams',
+  MEET: 'Virtual · Google Meet',
+  OTHER: 'Presencial / Otro',
+};
+
+/**
+ * Detecta la plataforma de videollamada (Microsoft Teams o Google Meet) a partir de la URL o modalidad.
+ */
+export function detectMeetingPlatform(
+  url?: string | null,
+  location?: string | null,
+): MeetingPlatform {
+  const normalizedUrl = (url ?? '').trim().toLowerCase();
+  if (
+    normalizedUrl.includes('teams.microsoft.com') ||
+    normalizedUrl.includes('teams.live.com') ||
+    normalizedUrl.includes('aka.ms/')
+  ) {
+    return 'TEAMS';
+  }
+  if (normalizedUrl.includes('meet.google.com')) {
+    return 'MEET';
+  }
+
+  const normalizedLoc = (location ?? '').trim().toLowerCase();
+  if (normalizedLoc.includes('teams')) return 'TEAMS';
+  if (normalizedLoc.includes('meet')) return 'MEET';
+  return 'OTHER';
+}
+
+export interface ParsedMeetingUrl {
+  url: string | null;
+  platform: MeetingPlatform | null;
+  error?: string;
+}
+
+/**
+ * Normaliza y valida una URL de reunión (Microsoft Teams, Google Meet u otro enlace http/https).
+ */
+export function parseMeetingUrl(rawUrl?: string | null): ParsedMeetingUrl {
+  const trimmed = (rawUrl ?? '').trim();
+  if (!trimmed) {
+    return { url: null, platform: null };
+  }
+
+  const invalidError =
+    'Ingresa un enlace válido de Microsoft Teams o Google Meet (ej. https://teams.microsoft.com/... o https://meet.google.com/...).';
+
+  if (/\s/.test(trimmed)) {
+    return { url: null, platform: null, error: invalidError };
+  }
+
+  const schemeMatch = trimmed.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
+  if (schemeMatch) {
+    const scheme = schemeMatch[1].toLowerCase();
+    if ((scheme !== 'http' && scheme !== 'https') || !/^https?:\/\//i.test(trimmed)) {
+      return { url: null, platform: null, error: invalidError };
+    }
+  }
+
+  const normalizedUrl = schemeMatch ? trimmed : `https://${trimmed}`;
+  const validPattern =
+    /^https?:\/\/([a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+)(?::\d{1,5})?(?:[/?#][^\s]*)?$/i;
+
+  if (!validPattern.test(normalizedUrl)) {
+    return { url: null, platform: null, error: invalidError };
+  }
+
+  return {
+    url: normalizedUrl,
+    platform: detectMeetingPlatform(normalizedUrl),
+  };
+}

@@ -68,13 +68,13 @@ export class CreateCandidateMeetingDto {
   @IsDateString()
   scheduledAt: string;
 
-  @ApiPropertyOptional({ example: 'https://meet.google.com/abc-defg-hij' })
+  @ApiPropertyOptional({ example: 'https://teams.microsoft.com/l/meetup-join/...' })
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(1500)
   meetingUrl?: string;
 
-  @ApiPropertyOptional({ example: 'Google Meet / Sala Virtual Alliance' })
+  @ApiPropertyOptional({ example: 'Virtual · Microsoft Teams / Google Meet' })
   @IsOptional()
   @IsString()
   @MaxLength(200)
@@ -94,9 +94,10 @@ export class CreateCandidateMeetingDto {
 }
 
 export class UpdateCandidateMeetingDto {
-  @ApiProperty({ enum: MEETING_STATUSES })
+  @ApiPropertyOptional({ enum: MEETING_STATUSES })
+  @IsOptional()
   @IsIn(MEETING_STATUSES)
-  status: MeetingStatus;
+  status?: MeetingStatus;
 
   @ApiPropertyOptional({ example: '2026-11-26T16:00:00.000Z' })
   @IsOptional()
@@ -106,8 +107,14 @@ export class UpdateCandidateMeetingDto {
   @ApiPropertyOptional({ example: 'https://meet.google.com/xyz-1234-abc' })
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(1500)
   meetingUrl?: string;
+
+  @ApiPropertyOptional({ example: 'Virtual · Google Meet' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  location?: string;
 
   @ApiPropertyOptional({ example: 'Reprogramada por cruce de agenda del entrevistador.' })
   @IsOptional()

@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Ban,
+  Calendar,
   Check,
   CheckCircle2,
   Copy,
@@ -282,14 +284,23 @@ export default function ThDashboardPage() {
               Expedientes digitales (24 campos), asignación organizacional y disparo a IT.
             </p>
           </div>
-          <Button
-            variant={inviteOpen ? 'secondary' : 'default'}
-            size="sm"
-            onClick={() => setInviteOpen((v) => !v)}
-          >
-            <Link2 className="h-3.5 w-3.5" />
-            {inviteOpen ? 'Cerrar enlace' : 'Generar link pre-ingreso'}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/dashboard/candidatos"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950 dark:border-zinc-800 dark:bg-[#0f0f12] dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              Reuniones y candidatos
+            </Link>
+            <Button
+              variant={inviteOpen ? 'secondary' : 'default'}
+              size="sm"
+              onClick={() => setInviteOpen((v) => !v)}
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              {inviteOpen ? 'Cerrar enlace' : 'Generar link pre-ingreso'}
+            </Button>
+          </div>
         </div>
 
         {inviteOpen && (

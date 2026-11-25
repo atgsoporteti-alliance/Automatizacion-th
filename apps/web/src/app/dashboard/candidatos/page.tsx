@@ -16,19 +16,26 @@ import {
   FileText,
   Link2,
   Lock,
+  Pencil,
   Plus,
   Search,
   Send,
   UserCheck,
   Video,
+  X,
 } from 'lucide-react';
 import {
   CANDIDATE_STAGE_LABELS,
   CANDIDATE_STAGES,
   CandidateStage,
+  detectMeetingPlatform,
+  MEETING_PLATFORM_LABELS,
+  MEETING_PLATFORM_LOCATIONS,
   MEETING_STATUS_LABELS,
   MEETING_STATUSES,
+  MeetingPlatform,
   MeetingStatus,
+  parseMeetingUrl,
   WORKFLOW_STEP_LABELS,
 } from '@alliance-hcm/shared';
 import { AppShell } from '@/components/app-shell';
@@ -82,6 +89,131 @@ function getStageBadgeVariant(
   }
 }
 
+const MEETING_PLATFORM_OPTIONS: Array<{
+  id: MeetingPlatform;
+  label: string;
+  placeholder: string;
+}> = [
+    {
+      id: 'TEAMS',
+      label: 'Microsoft Teams',
+      placeholder: 'https://teams.microsoft.com/l/meetup-join/...',
+    },
+    {
+      id: 'MEET',
+      label: 'Google Meet',
+      placeholder: 'https://meet.google.com/xxx-xxxx-xxx',
+    },
+    {
+      id: 'OTHER',
+      label: 'Presencial / Otro',
+      placeholder: 'https://... (opcional)',
+    },
+  ];
+
+const GENERIC_MEETING_LOCATIONS = new Set<string>([
+  '',
+  'Virtual · Google Meet / Teams',
+  MEETING_PLATFORM_LOCATIONS.TEAMS,
+  MEETING_PLATFORM_LOCATIONS.MEET,
+  MEETING_PLATFORM_LOCATIONS.OTHER,
+]);
+
+function formatDateTimeLocalValue(isoDate: string): string {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return '';
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function MeetingLinkFields({
+  platform,
+  url,
+  location,
+  onSelectPlatform,
+  onChangeUrl,
+  onChangeLocation,
+  compact = false,
+}: {
+  platform: MeetingPlatform;
+  url: string;
+  location: string;
+  onSelectPlatform: (next: MeetingPlatform) => void;
+  onChangeUrl: (nextUrl: string) => void;
+  onChangeLocation: (nextLocation: string) => void;
+  compact?: boolean;
+}) {
+  const parsedUrl = parseMeetingUrl(url);
+  const currentOption =
+    MEETING_PLATFORM_OPTIONS.find((opt) => opt.id === platform) ?? MEETING_PLATFORM_OPTIONS[0];
+
+  return (
+    <>
+      <div className={compact ? 'space-y-1 sm:col-span-2' : 'space-y-1.5 sm:col-span-2'}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Label className="text-[11px]">Plataforma y enlace (Teams o Meet)</Label>
+          <div className="flex flex-wrap items-center gap-1">
+            {MEETING_PLATFORM_OPTIONS.map((opt) => {
+              const active = platform === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onSelectPlatform(opt.id)}
+                  className={`rounded border px-2 py-0.5 text-[10px] font-medium transition-colors cursor-pointer ${active
+                      ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                      : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Input
+            value={url}
+            onChange={(e) => onChangeUrl(e.target.value)}
+            placeholder={currentOption.placeholder}
+          />
+          {url.trim() && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              title="Limpiar enlace"
+              onClick={() => onChangeUrl('')}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+        {parsedUrl.error ? (
+          <p className="text-[11px] text-rose-600 dark:text-rose-400">{parsedUrl.error}</p>
+        ) : parsedUrl.url && parsedUrl.platform ? (
+          <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+            Enlace válido detectado: {MEETING_PLATFORM_LABELS[parsedUrl.platform]}
+          </p>
+        ) : (
+          <p className="text-[10px] text-zinc-500">
+            Pega el link de Microsoft Teams o Google Meet para enviarlo por correo y mostrarlo al candidato.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-[11px]">Modalidad / Sala</Label>
+        <Input
+          value={location}
+          onChange={(e) => onChangeLocation(e.target.value)}
+          placeholder="Virtual · Microsoft Teams"
+        />
+      </div>
+    </>
+  );
+}
+
 export default function ThCandidatesPage() {
   const queryClient = useQueryClient();
 
@@ -106,10 +238,19 @@ export default function ThCandidatesPage() {
   const [meetingTitle, setMeetingTitle] = useState('Entrevista Talento Humano');
   const [meetingType, setMeetingType] = useState('Entrevista TH');
   const [meetingDate, setMeetingDate] = useState('');
+  const [meetingPlatform, setMeetingPlatform] = useState<MeetingPlatform>('TEAMS');
   const [meetingUrl, setMeetingUrl] = useState('');
-  const [meetingLocation, setMeetingLocation] = useState('Virtual · Google Meet / Teams');
+  const [meetingLocation, setMeetingLocation] = useState(MEETING_PLATFORM_LOCATIONS.TEAMS);
   const [interviewerName, setInterviewerName] = useState('');
   const [meetingNotes, setMeetingNotes] = useState('');
+
+  // Editar enlace / fecha de reunión existente
+  const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
+  const [editMeetingPlatform, setEditMeetingPlatform] = useState<MeetingPlatform>('TEAMS');
+  const [editMeetingUrl, setEditMeetingUrl] = useState('');
+  const [editMeetingDate, setEditMeetingDate] = useState('');
+  const [editMeetingLocation, setEditMeetingLocation] = useState('');
+  const [editMeetingNotes, setEditMeetingNotes] = useState('');
 
   // Modal de previsualización / descarga de Hoja de Vida
   const [previewState, setPreviewState] = useState<{
@@ -230,10 +371,9 @@ export default function ThCandidatesPage() {
       }),
     onSuccess: (created) => {
       setFeedback(
-        `Portal creado para ${created.candidateName}.${
-          created.emailSent
-            ? ` Invitación enviada a ${created.candidateEmail}.`
-            : ' Copia el enlace para compartirlo con el candidato.'
+        `Portal creado para ${created.candidateName}.${created.emailSent
+          ? ` Invitación enviada a ${created.candidateEmail}.`
+          : ' Copia el enlace para compartirlo con el candidato.'
         }`,
       );
       setCandidateName('');
@@ -290,22 +430,73 @@ export default function ThCandidatesPage() {
     },
   });
 
+  const handlePlatformSelect = (
+    nextPlatform: MeetingPlatform,
+    currentLocation: string,
+    setPlatform: (p: MeetingPlatform) => void,
+    setLocation: (loc: string) => void,
+  ) => {
+    setPlatform(nextPlatform);
+    if (GENERIC_MEETING_LOCATIONS.has(currentLocation.trim())) {
+      setLocation(MEETING_PLATFORM_LOCATIONS[nextPlatform]);
+    }
+  };
+
+  const handleMeetingUrlChange = (
+    rawUrl: string,
+    currentLocation: string,
+    setUrl: (u: string) => void,
+    setPlatform: (p: MeetingPlatform) => void,
+    setLocation: (loc: string) => void,
+  ) => {
+    setUrl(rawUrl);
+    const parsed = parseMeetingUrl(rawUrl);
+    if (parsed.platform === 'TEAMS' || parsed.platform === 'MEET') {
+      setPlatform(parsed.platform);
+      if (GENERIC_MEETING_LOCATIONS.has(currentLocation.trim())) {
+        setLocation(MEETING_PLATFORM_LOCATIONS[parsed.platform]);
+      }
+    }
+  };
+
+  const startEditingMeeting = (m: CandidateProcessRecord['meetings'][number]) => {
+    if (editingMeetingId === m.id) {
+      setEditingMeetingId(null);
+      return;
+    }
+    const detected = detectMeetingPlatform(m.meetingUrl, m.location);
+    setEditingMeetingId(m.id);
+    setEditMeetingPlatform(detected);
+    setEditMeetingUrl(m.meetingUrl ?? '');
+    setEditMeetingDate(formatDateTimeLocalValue(m.scheduledAt));
+    setEditMeetingLocation(m.location ?? MEETING_PLATFORM_LOCATIONS[detected]);
+    setEditMeetingNotes(m.notes ?? '');
+  };
+
+  const parsedCreateMeetingUrl = parseMeetingUrl(meetingUrl);
+  const parsedEditMeetingUrl = parseMeetingUrl(editMeetingUrl);
+
   const addMeetingMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiClient.createCandidateMeeting(id, {
+    mutationFn: (id: string) => {
+      if (parsedCreateMeetingUrl.error) {
+        throw new Error(parsedCreateMeetingUrl.error);
+      }
+      return apiClient.createCandidateMeeting(id, {
         title: meetingTitle.trim(),
         meetingType: meetingType.trim() || undefined,
         scheduledAt: new Date(meetingDate).toISOString(),
-        meetingUrl: meetingUrl.trim() || undefined,
+        meetingUrl: parsedCreateMeetingUrl.url ?? undefined,
         location: meetingLocation.trim() || undefined,
         interviewerName: interviewerName.trim() || undefined,
         notes: meetingNotes.trim() || undefined,
-      }),
+      });
+    },
     onSuccess: () => {
-      setFeedback('Reunión programada y publicada en el portal del candidato.');
+      setFeedback('Reunión programada, publicada en el portal y enviada al correo del candidato.');
       setMeetingTitle('Entrevista Técnica / Líder');
       setMeetingDate('');
       setMeetingUrl('');
+      setMeetingLocation(MEETING_PLATFORM_LOCATIONS[meetingPlatform]);
       setInterviewerName('');
       setMeetingNotes('');
       invalidateAll();
@@ -316,11 +507,26 @@ export default function ThCandidatesPage() {
   });
 
   const updateMeetingMutation = useMutation({
-    mutationFn: ({ meetingId, status }: { meetingId: string; status: MeetingStatus }) =>
-      apiClient.updateCandidateMeeting(meetingId, { status }),
+    mutationFn: ({
+      meetingId,
+      payload,
+    }: {
+      meetingId: string;
+      payload: {
+        status?: MeetingStatus;
+        scheduledAt?: string;
+        meetingUrl?: string;
+        location?: string;
+        notes?: string;
+      };
+    }) => apiClient.updateCandidateMeeting(meetingId, payload),
     onSuccess: () => {
-      setFeedback('Estado de reunión actualizado y notificado al candidato.');
+      setEditingMeetingId(null);
+      setFeedback('Reunión y enlace actualizados; notificación enviada al candidato.');
       invalidateAll();
+    },
+    onError: (err) => {
+      setFeedback(err instanceof Error ? err.message : 'Error actualizando la reunión.');
     },
   });
 
@@ -537,11 +743,10 @@ export default function ThCandidatesPage() {
                         key={proc.id}
                         type="button"
                         onClick={() => setSelectedId(proc.id)}
-                        className={`w-full px-4 py-3 text-left transition-colors ${
-                          isSelected
+                        className={`w-full px-4 py-3 text-left transition-colors ${isSelected
                             ? 'bg-zinc-100/90 dark:bg-zinc-800/70'
                             : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/50'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
@@ -873,60 +1078,198 @@ export default function ThCandidatesPage() {
                       Reuniones y Entrevistas ({selected.meetings.length})
                     </CardTitle>
                     <CardDescription>
-                      Las reuniones programadas se muestran inmediatamente en el portal del candidato.
+                      Las reuniones programadas y sus enlaces de Microsoft Teams o Google Meet se
+                      publican inmediatamente en el portal del candidato y se envían por correo.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {selected.meetings.length > 0 && (
                       <div className="divide-y divide-zinc-200/80 rounded-md border border-zinc-200/80 dark:divide-zinc-800/80 dark:border-zinc-800/80">
-                        {selected.meetings.map((m) => (
-                          <div
-                            key={m.id}
-                            className="flex flex-col gap-2 px-3.5 py-2.5 text-xs sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="space-y-0.5">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-medium">{m.title}</span>
-                                <Badge variant="outline">{m.meetingType}</Badge>
-                              </div>
-                              <p className="text-zinc-500">
-                                {new Date(m.scheduledAt).toLocaleString('es-CO', {
-                                  dateStyle: 'medium',
-                                  timeStyle: 'short',
-                                })}
-                                {m.interviewerName ? ` · Con ${m.interviewerName}` : ''}
-                                {m.location ? ` · ${m.location}` : ''}
-                              </p>
-                              {m.meetingUrl && (
-                                <a
-                                  href={m.meetingUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-700 underline dark:text-zinc-300"
+                        {selected.meetings.map((m) => {
+                          const platform = m.meetingUrl
+                            ? detectMeetingPlatform(m.meetingUrl, m.location)
+                            : null;
+                          const isEditing = editingMeetingId === m.id;
+                          const copyId = `meeting-${m.id}`;
+
+                          return (
+                            <div key={m.id} className="space-y-2.5 px-3.5 py-3 text-xs">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="space-y-1">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="font-medium">{m.title}</span>
+                                    <Badge variant="outline">{m.meetingType}</Badge>
+                                    {platform && platform !== 'OTHER' && (
+                                      <Badge variant={platform === 'TEAMS' ? 'default' : 'success'}>
+                                        {MEETING_PLATFORM_LABELS[platform]}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-zinc-500">
+                                    {new Date(m.scheduledAt).toLocaleString('es-CO', {
+                                      dateStyle: 'medium',
+                                      timeStyle: 'short',
+                                    })}
+                                    {m.interviewerName ? ` · Con ${m.interviewerName}` : ''}
+                                    {m.location ? ` · ${m.location}` : ''}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                                    {m.meetingUrl ? (
+                                      <>
+                                        <a
+                                          href={m.meetingUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex h-6 items-center gap-1 rounded border border-zinc-200 bg-zinc-50 px-2 text-[11px] font-medium text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                        >
+                                          <Video className="h-3 w-3" />
+                                          {platform && platform !== 'OTHER'
+                                            ? `Unirse por ${MEETING_PLATFORM_LABELS[platform]}`
+                                            : 'Abrir videollamada'}
+                                          <ExternalLink className="h-2.5 w-2.5 opacity-70" />
+                                        </a>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCopy(m.meetingUrl!, copyId)}
+                                          className="inline-flex h-6 items-center gap-1 rounded border border-zinc-200 px-2 text-[11px] text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                                        >
+                                          {copiedKey === copyId ? (
+                                            <>
+                                              <Check className="h-3 w-3 text-emerald-600" />
+                                              Copiado
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Copy className="h-3 w-3" />
+                                              Copiar link
+                                            </>
+                                          )}
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <span className="text-[11px] text-amber-600 dark:text-amber-400">
+                                        Sin enlace de videollamada asignado
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditingMeeting(m)}
+                                      className="inline-flex h-6 items-center gap-1 rounded border border-zinc-200 px-2 text-[11px] text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900 cursor-pointer"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                      {isEditing
+                                        ? 'Cerrar edición'
+                                        : m.meetingUrl
+                                          ? 'Editar link / hora'
+                                          : 'Agregar Teams / Meet'}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <Select
+                                  value={m.status}
+                                  onChange={(e) =>
+                                    updateMeetingMutation.mutate({
+                                      meetingId: m.id,
+                                      payload: { status: e.target.value as MeetingStatus },
+                                    })
+                                  }
+                                  className="w-40 text-xs"
                                 >
-                                  <Video className="h-3 w-3" /> Enlace de videollamada
-                                </a>
+                                  {MEETING_STATUSES.map((st) => (
+                                    <option key={st} value={st}>
+                                      {MEETING_STATUS_LABELS[st]}
+                                    </option>
+                                  ))}
+                                </Select>
+                              </div>
+
+                              {isEditing && (
+                                <form
+                                  onSubmit={(e) => {
+                                    e.preventDefault();
+                                    if (parsedEditMeetingUrl.error) return;
+                                    updateMeetingMutation.mutate({
+                                      meetingId: m.id,
+                                      payload: {
+                                        meetingUrl: parsedEditMeetingUrl.url ?? '',
+                                        location: editMeetingLocation.trim() || undefined,
+                                        scheduledAt: editMeetingDate
+                                          ? new Date(editMeetingDate).toISOString()
+                                          : undefined,
+                                        notes: editMeetingNotes.trim() || undefined,
+                                      },
+                                    });
+                                  }}
+                                  className="grid gap-2.5 rounded-md border border-zinc-200 bg-zinc-50/70 p-3 sm:grid-cols-3 dark:border-zinc-800 dark:bg-zinc-900/50"
+                                >
+                                  <MeetingLinkFields
+                                    compact
+                                    platform={editMeetingPlatform}
+                                    url={editMeetingUrl}
+                                    location={editMeetingLocation}
+                                    onSelectPlatform={(next) =>
+                                      handlePlatformSelect(
+                                        next,
+                                        editMeetingLocation,
+                                        setEditMeetingPlatform,
+                                        setEditMeetingLocation,
+                                      )
+                                    }
+                                    onChangeUrl={(nextUrl) =>
+                                      handleMeetingUrlChange(
+                                        nextUrl,
+                                        editMeetingLocation,
+                                        setEditMeetingUrl,
+                                        setEditMeetingPlatform,
+                                        setEditMeetingLocation,
+                                      )
+                                    }
+                                    onChangeLocation={setEditMeetingLocation}
+                                  />
+                                  <div className="space-y-1">
+                                    <Label className="text-[11px]">Fecha y hora</Label>
+                                    <Input
+                                      type="datetime-local"
+                                      value={editMeetingDate}
+                                      onChange={(e) => setEditMeetingDate(e.target.value)}
+                                    />
+                                  </div>
+                                  <div className="space-y-1 sm:col-span-2">
+                                    <Label className="text-[11px]">Notas / indicaciones</Label>
+                                    <Input
+                                      value={editMeetingNotes}
+                                      onChange={(e) => setEditMeetingNotes(e.target.value)}
+                                      placeholder="Opcional: instrucciones de conexión..."
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-end gap-2 sm:col-span-3">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setEditingMeetingId(null)}
+                                    >
+                                      Cancelar
+                                    </Button>
+                                    <Button
+                                      type="submit"
+                                      size="sm"
+                                      disabled={
+                                        updateMeetingMutation.isPending ||
+                                        Boolean(parsedEditMeetingUrl.error)
+                                      }
+                                    >
+                                      {updateMeetingMutation.isPending
+                                        ? 'Guardando...'
+                                        : 'Guardar enlace y notificar'}
+                                    </Button>
+                                  </div>
+                                </form>
                               )}
                             </div>
-
-                            <Select
-                              value={m.status}
-                              onChange={(e) =>
-                                updateMeetingMutation.mutate({
-                                  meetingId: m.id,
-                                  status: e.target.value as MeetingStatus,
-                                })
-                              }
-                              className="w-40 text-xs"
-                            >
-                              {MEETING_STATUSES.map((st) => (
-                                <option key={st} value={st}>
-                                  {MEETING_STATUS_LABELS[st]}
-                                </option>
-                              ))}
-                            </Select>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
@@ -934,7 +1277,7 @@ export default function ThCandidatesPage() {
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
-                        if (!meetingDate) return;
+                        if (!meetingDate || parsedCreateMeetingUrl.error) return;
                         addMeetingMutation.mutate(selected.id);
                       }}
                       className="grid gap-3 rounded-md border border-zinc-200/80 bg-zinc-50/40 p-3.5 sm:grid-cols-3 dark:border-zinc-800/80 dark:bg-zinc-900/30"
@@ -964,27 +1307,35 @@ export default function ThCandidatesPage() {
                           required
                         />
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">URL videollamada</Label>
-                        <Input
-                          value={meetingUrl}
-                          onChange={(e) => setMeetingUrl(e.target.value)}
-                          placeholder="https://meet.google.com/..."
-                        />
-                      </div>
-                      <div className="space-y-1">
+                      <MeetingLinkFields
+                        platform={meetingPlatform}
+                        url={meetingUrl}
+                        location={meetingLocation}
+                        onSelectPlatform={(next) =>
+                          handlePlatformSelect(
+                            next,
+                            meetingLocation,
+                            setMeetingPlatform,
+                            setMeetingLocation,
+                          )
+                        }
+                        onChangeUrl={(nextUrl) =>
+                          handleMeetingUrlChange(
+                            nextUrl,
+                            meetingLocation,
+                            setMeetingUrl,
+                            setMeetingPlatform,
+                            setMeetingLocation,
+                          )
+                        }
+                        onChangeLocation={setMeetingLocation}
+                      />
+                      <div className="space-y-1 sm:col-span-3">
                         <Label className="text-[11px]">Entrevistador</Label>
                         <Input
                           value={interviewerName}
                           onChange={(e) => setInterviewerName(e.target.value)}
                           placeholder="Nombre líder / analista"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px]">Modalidad / Sala</Label>
-                        <Input
-                          value={meetingLocation}
-                          onChange={(e) => setMeetingLocation(e.target.value)}
                         />
                       </div>
                       <div className="space-y-1 sm:col-span-3">
@@ -1000,7 +1351,11 @@ export default function ThCandidatesPage() {
                         <Button
                           type="submit"
                           size="sm"
-                          disabled={addMeetingMutation.isPending || !meetingDate}
+                          disabled={
+                            addMeetingMutation.isPending ||
+                            !meetingDate ||
+                            Boolean(parsedCreateMeetingUrl.error)
+                          }
                         >
                           <Plus className="h-3.5 w-3.5" />
                           {addMeetingMutation.isPending ? 'Programando...' : 'Programar reunión'}

@@ -20,7 +20,11 @@ import {
   CandidateNotificationType,
   CandidateStage,
   computeCandidatePortalVisibility,
+  detectMeetingPlatform,
+  MEETING_PLATFORM_LABELS,
+  MEETING_PLATFORM_LOCATIONS,
   MEETING_STATUS_LABELS,
+  parseMeetingUrl,
   WORKFLOW_STEP_LABELS,
   WorkflowStep,
 } from '@alliance-hcm/shared';
@@ -199,6 +203,42 @@ export class CandidatePortalService {
     };
   }
 
+  private normalizeMeetingInput(
+    rawUrl?: string,
+    rawLocation?: string,
+    fallbackLocation?: string | null,
+  ): { meetingUrl: string | null; location: string | null; platformLabel: string | null } {
+    const parsed = parseMeetingUrl(rawUrl);
+    if (parsed.error) {
+      throw new BadRequestException(parsed.error);
+    }
+
+    const trimmedLocation = rawLocation?.trim();
+    const resolvedPlatform = parsed.platform;
+    const platformLabel = resolvedPlatform ? MEETING_PLATFORM_LABELS[resolvedPlatform] : null;
+    let location = trimmedLocation || fallbackLocation || null;
+
+    const isGenericVirtualLocation =
+      !location ||
+      location === 'Virtual · Google Meet / Teams' ||
+      location.startsWith('Virtual · ');
+
+    if (
+      parsed.url &&
+      resolvedPlatform &&
+      resolvedPlatform !== 'OTHER' &&
+      (!trimmedLocation || isGenericVirtualLocation)
+    ) {
+      location = MEETING_PLATFORM_LOCATIONS[resolvedPlatform];
+    }
+
+    return {
+      meetingUrl: parsed.url,
+      location,
+      platformLabel,
+    };
+  }
+
   async addMeeting(processId: string, dto: CreateCandidateMeetingDto, actorId: string) {
     const proc = await this.database.db.query.candidateProcesses.findFirst({
       where: eq(candidateProcesses.id, processId),
@@ -212,6 +252,11 @@ export class CandidatePortalService {
       throw new BadRequestException('Fecha/hora de reunión inválida.');
     }
 
+    const { meetingUrl, location, platformLabel } = this.normalizeMeetingInput(
+      dto.meetingUrl,
+      dto.location,
+    );
+
     const [meeting] = await this.database.db
       .insert(candidateMeetings)
       .values({
@@ -219,8 +264,8 @@ export class CandidatePortalService {
         title: dto.title.trim(),
         meetingType: dto.meetingType?.trim() || 'Entrevista TH',
         scheduledAt,
-        meetingUrl: dto.meetingUrl?.trim() || null,
-        location: dto.location?.trim() || null,
+        meetingUrl,
+        location,
         interviewerName: dto.interviewerName?.trim() || null,
         status: 'SCHEDULED',
         notes: dto.notes?.trim() || null,
@@ -244,8 +289,12 @@ export class CandidatePortalService {
       processId,
       type: 'MEETING',
       title: `Reunión programada: ${meeting.title}`,
-      message: `${meeting.meetingType} el ${formattedDate}${meeting.interviewerName ? ` con ${meeting.interviewerName}` : ''}.${meeting.meetingUrl ? ' Enlace disponible en la sección Reuniones.' : ''}`,
-      metadata: { meetingId: meeting.id, scheduledAt: meeting.scheduledAt.toISOString() },
+      message: `${meeting.meetingType} el ${formattedDate}${meeting.interviewerName ? ` con ${meeting.interviewerName}` : ''}.${meeting.meetingUrl ? ` Enlace de ${platformLabel ?? 'videollamada'} disponible en Reuniones.` : ''}`,
+      metadata: {
+        meetingId: meeting.id,
+        scheduledAt: meeting.scheduledAt.toISOString(),
+        meetingUrl: meeting.meetingUrl,
+      },
     });
 
     await this.mailService?.sendCandidateMeetingEmail({
@@ -266,7 +315,13 @@ export class CandidatePortalService {
       action: 'CANDIDATE_MEETING_CREATED',
       entity: 'candidate_meetings',
       entityId: meeting.id,
-      newValues: { processId, title: meeting.title, scheduledAt: meeting.scheduledAt },
+      newValues: {
+        processId,
+        title: meeting.title,
+        scheduledAt: meeting.scheduledAt,
+        meetingUrl: meeting.meetingUrl,
+        location: meeting.location,
+      },
     });
 
     return meeting;
@@ -285,24 +340,73 @@ export class CandidatePortalService {
       throw new BadRequestException('Fecha/hora de reunión inválida.');
     }
 
+    const nextStatus = dto.status ?? existing.status;
+    let nextMeetingUrl = existing.meetingUrl;
+    let nextLocation = dto.location !== undefined ? dto.location.trim() || null : existing.location;
+    let platformLabel: string | null = null;
+
+    if (dto.meetingUrl !== undefined) {
+      const normalized = this.normalizeMeetingInput(
+        dto.meetingUrl,
+        dto.location,
+        existing.location,
+      );
+      nextMeetingUrl = normalized.meetingUrl;
+      nextLocation = normalized.location;
+      platformLabel = normalized.platformLabel;
+    } else if (nextMeetingUrl) {
+      platformLabel = MEETING_PLATFORM_LABELS[detectMeetingPlatform(nextMeetingUrl, nextLocation)];
+    }
+
     const [updated] = await this.database.db
       .update(candidateMeetings)
       .set({
-        status: dto.status,
+        status: nextStatus,
         scheduledAt: nextScheduledAt,
-        meetingUrl: dto.meetingUrl !== undefined ? dto.meetingUrl.trim() || null : existing.meetingUrl,
+        meetingUrl: nextMeetingUrl,
+        location: nextLocation,
         notes: dto.notes !== undefined ? dto.notes.trim() || null : existing.notes,
         updatedAt: new Date(),
       })
       .where(eq(candidateMeetings.id, meetingId))
       .returning();
 
+    const changeParts: string[] = [];
+    if (dto.status && dto.status !== existing.status) {
+      changeParts.push(`Estado: ${MEETING_STATUS_LABELS[nextStatus]}.`);
+    }
+    if (dto.scheduledAt && nextScheduledAt.getTime() !== existing.scheduledAt.getTime()) {
+      changeParts.push(
+        `Nueva fecha: ${nextScheduledAt.toLocaleString('es-CO', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })}.`,
+      );
+    }
+    if (dto.meetingUrl !== undefined && updated.meetingUrl !== existing.meetingUrl) {
+      changeParts.push(
+        updated.meetingUrl
+          ? `Enlace de ${platformLabel ?? 'videollamada'} ${existing.meetingUrl ? 'actualizado' : 'agregado'}.`
+          : 'Enlace de videollamada removido.',
+      );
+    }
+    if (changeParts.length === 0) {
+      changeParts.push(`Estado actual: ${MEETING_STATUS_LABELS[nextStatus]}.`);
+    }
+    if (updated.notes) {
+      changeParts.push(`Nota: ${updated.notes}`);
+    }
+
     await this.addNotification({
       processId: existing.processId,
       type: 'MEETING',
       title: `Actualización de reunión: ${existing.title}`,
-      message: `Estado cambiado a ${MEETING_STATUS_LABELS[dto.status]}.${updated.notes ? ` Nota: ${updated.notes}` : ''}`,
-      metadata: { meetingId: updated.id, status: updated.status },
+      message: changeParts.join(' '),
+      metadata: {
+        meetingId: updated.id,
+        status: updated.status,
+        meetingUrl: updated.meetingUrl,
+      },
     });
 
     const proc = await this.database.db.query.candidateProcesses.findFirst({
@@ -318,7 +422,7 @@ export class CandidatePortalService {
           dateStyle: 'medium',
           timeStyle: 'short',
         }),
-        statusLabel: MEETING_STATUS_LABELS[dto.status],
+        statusLabel: MEETING_STATUS_LABELS[nextStatus],
         meetingUrl: updated.meetingUrl,
         location: updated.location,
         interviewerName: updated.interviewerName,
@@ -332,8 +436,18 @@ export class CandidatePortalService {
       action: 'CANDIDATE_MEETING_UPDATED',
       entity: 'candidate_meetings',
       entityId: meetingId,
-      oldValues: { status: existing.status },
-      newValues: { status: updated.status },
+      oldValues: {
+        status: existing.status,
+        scheduledAt: existing.scheduledAt,
+        meetingUrl: existing.meetingUrl,
+        location: existing.location,
+      },
+      newValues: {
+        status: updated.status,
+        scheduledAt: updated.scheduledAt,
+        meetingUrl: updated.meetingUrl,
+        location: updated.location,
+      },
     });
 
     return updated;

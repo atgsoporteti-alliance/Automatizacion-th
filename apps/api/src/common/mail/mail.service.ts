@@ -2,6 +2,7 @@ import { createHash, createHmac } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer, { Transporter } from 'nodemailer';
+import { detectMeetingPlatform, MEETING_PLATFORM_LABELS } from '@alliance-hcm/shared';
 import { DEFAULT_VERCEL_WEB_URL } from '../utils/web-url.util';
 
 export interface SendEmailInput {
@@ -316,12 +317,27 @@ export class MailService {
     notes?: string | null;
     isUpdate?: boolean;
   }) {
+    const platform = params.meetingUrl
+      ? detectMeetingPlatform(params.meetingUrl, params.location)
+      : null;
+    const platformLabel = platform ? MEETING_PLATFORM_LABELS[platform] : null;
+    const ctaLabel = !params.meetingUrl
+      ? undefined
+      : platform === 'TEAMS'
+        ? 'Unirse por Microsoft Teams'
+        : platform === 'MEET'
+          ? 'Unirse por Google Meet'
+          : 'Abrir enlace de reunión';
+
     const details = [
       `<p style="margin:0 0 8px 0;"><strong>${escapeHtml(params.title)}</strong> (${escapeHtml(params.meetingType)})</p>`,
       `<p style="margin:0 0 6px 0;"><strong>Fecha y hora:</strong> ${escapeHtml(params.scheduledAtLabel)}</p>`,
       params.statusLabel ? `<p style="margin:0 0 6px 0;"><strong>Estado:</strong> ${escapeHtml(params.statusLabel)}</p>` : '',
       params.interviewerName ? `<p style="margin:0 0 6px 0;"><strong>Con:</strong> ${escapeHtml(params.interviewerName)}</p>` : '',
       params.location ? `<p style="margin:0 0 6px 0;"><strong>Lugar / Modalidad:</strong> ${escapeHtml(params.location)}</p>` : '',
+      params.meetingUrl
+        ? `<p style="margin:0 0 6px 0;"><strong>Enlace (${escapeHtml(platformLabel ?? 'Videollamada')}):</strong> <a href="${escapeHtml(params.meetingUrl)}">${escapeHtml(params.meetingUrl)}</a></p>`
+        : '',
       params.notes ? `<p style="margin:8px 0 0 0;"><strong>Notas:</strong> ${escapeHtml(params.notes)}</p>` : '',
     ]
       .filter(Boolean)
@@ -330,12 +346,12 @@ export class MailService {
     return this.sendEmail({
       to: params.to,
       subject: `${params.isUpdate ? 'Actualización de reunión' : 'Reunión programada'}: ${params.title}`,
-      text: `Hola ${params.candidateName}, ${params.isUpdate ? 'se actualizó tu reunión' : 'tienes una nueva reunión'}: ${params.title} (${params.scheduledAtLabel})${params.meetingUrl ? ` · Enlace: ${params.meetingUrl}` : ''}`,
+      text: `Hola ${params.candidateName}, ${params.isUpdate ? 'se actualizó tu reunión' : 'tienes una nueva reunión'}: ${params.title} (${params.scheduledAtLabel})${params.meetingUrl ? ` · Enlace (${platformLabel ?? 'Videollamada'}): ${params.meetingUrl}` : ''}`,
       html: this.renderLayout({
         eyebrow: 'Agenda de Selección',
         title: params.isUpdate ? 'Actualización en tu reunión' : 'Nueva entrevista / reunión programada',
         bodyHtml: `<p style="margin:0 0 12px 0;">Hola ${escapeHtml(params.candidateName)},</p>${details}`,
-        ctaLabel: params.meetingUrl ? 'Abrir enlace de reunión' : undefined,
+        ctaLabel,
         ctaUrl: params.meetingUrl ?? undefined,
       }),
     });
