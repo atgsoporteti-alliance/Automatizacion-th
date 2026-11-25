@@ -352,7 +352,7 @@ export default function ThCandidatesPage() {
 
           <Button type="button" onClick={() => setCreateOpen((v) => !v)}>
             <Plus className="h-4 w-4" />
-            {createOpen ? 'Cerrar formulario' : 'Nuevo candidato'}
+            {createOpen ? 'Cerrar formulario' : 'Crear usuario candidato'}
           </Button>
         </div>
 

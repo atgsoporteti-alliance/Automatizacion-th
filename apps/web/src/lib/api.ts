@@ -9,6 +9,7 @@ import {
   InternalRole,
   MeetingStatus,
   OperationalArea,
+  SystemRole,
   UserClearanceDepartment,
   UserOperationalArea,
   WorkflowStep,
@@ -647,4 +648,31 @@ export const apiClient = {
         body: JSON.stringify({}),
       },
     ),
+  createAdminUser: (payload: {
+    fullName: string;
+    email: string;
+    role: SystemRole;
+    operationalArea?: UserOperationalArea | null;
+    clearanceDepartment?: UserClearanceDepartment | null;
+    appliedRole?: string;
+    nationalId?: string;
+    password?: string;
+    isActive?: boolean;
+  }) =>
+    apiFetch<
+      | {
+          kind: 'CANDIDATE';
+          candidateProcess: CandidateProcessRecord & { emailSent?: boolean };
+          authCreated: boolean;
+        }
+      | {
+          kind: 'INTERNAL';
+          user: AuthenticatedUserProfile;
+          authCreated: boolean;
+          authWarning?: string;
+        }
+    >('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };
