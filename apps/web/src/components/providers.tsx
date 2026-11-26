@@ -28,7 +28,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 0,
             refetchOnWindowFocus: true,
-            retry: 1,
+            retry: (failureCount, error) => {
+              if (error instanceof Error && error.message.includes('No se pudo conectar')) {
+                return failureCount < 3;
+              }
+              return failureCount < 1;
+            },
+            retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
           },
         },
       }),

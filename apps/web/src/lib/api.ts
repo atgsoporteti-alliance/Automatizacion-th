@@ -379,22 +379,34 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const authHeaders = await getAuthHeaders();
+  const isReadRequest = !init?.method || init.method.toUpperCase() === 'GET';
+  const maxAttempts = isReadRequest ? 3 : 1;
 
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-        ...(init?.headers ?? {}),
-      },
-      cache: 'no-store',
-    });
-  } catch {
-    throw new Error(
-      `No se pudo conectar con la API (${API_BASE}). Si estás en local, espera unos segundos a que termine de iniciar el backend en el puerto 4000; si estás en la nube, reintenta en un momento.`,
-    );
+  let response: Response | null = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      response = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders,
+          ...(init?.headers ?? {}),
+        },
+        cache: 'no-store',
+      });
+      break;
+    } catch {
+      if (attempt === maxAttempts - 1) {
+        throw new Error(
+          `No se pudo conectar con la API (${API_BASE}). Si estás en local, espera unos segundos a que termine de iniciar el backend en el puerto 4000; si estás en la nube, reintenta en un momento.`,
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 800));
+    }
+  }
+
+  if (!response) {
+    throw new Error(`No se pudo conectar con la API (${API_BASE}).`);
   }
 
   if (!response.ok) {
