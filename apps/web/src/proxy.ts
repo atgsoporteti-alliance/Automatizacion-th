@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { InternalRole, ROLE_HOME_ROUTES } from '@alliance-hcm/shared';
 
-const PUBLIC_PATHS = ['/login', '/pre-ingreso', '/candidato', '/flujo'];
+const PUBLIC_PATHS = ['/login', '/pre-ingreso', '/candidato'];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

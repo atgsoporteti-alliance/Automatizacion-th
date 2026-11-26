@@ -10,7 +10,6 @@ import {
   Cpu,
   ExternalLink,
   FileSearch,
-  GitBranch,
   Link2,
   LogOut,
   Menu,
@@ -43,24 +42,6 @@ interface NavGroup {
 }
 
 const NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Presentación',
-    items: [
-      {
-        href: '/flujo',
-        label: 'Flujo End-to-End',
-        icon: GitBranch,
-        allowedRoles: [
-          'TH_ANALYST',
-          'TH_ADMIN',
-          'AREA_LEADER',
-          'IT_SUPPORT',
-          'CLEARANCE_APPROVER',
-          'SUPER_ADMIN',
-        ],
-      },
-    ],
-  },
   {
     label: 'Talento Humano',
     items: [
@@ -134,7 +115,6 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 const ROUTE_TITLES: Record<string, string> = {
-  '/flujo': 'Presentación · Flujo Completo End-to-End',
   '/dashboard/candidatos': 'Talento Humano · Selección y Candidatos',
   '/dashboard/th': 'Talento Humano · Validación',
   '/dashboard/it': 'IT & Helpdesk · Aprovisionamiento',
