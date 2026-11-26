@@ -144,3 +144,18 @@ export const expirationStatusEnum = pgEnum('expiration_status', [
   'RENEWED',
   'ARCHIVED',
 ]);
+
+export const timeRequestCategoryEnum = pgEnum('time_request_category', [
+  'INCAPACITY',
+  'LICENSE',
+  'PERSONAL_PERMISSION',
+  'OVERTIME',
+]);
+
+export const timeRequestStatusEnum = pgEnum('time_request_status', [
+  'PENDING_LEADER',
+  'PENDING_TH',
+  'APPROVED',
+  'REJECTED',
+  'CANCELLED',
+]);

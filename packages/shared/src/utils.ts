@@ -282,3 +282,49 @@ export function shouldSendExpirationAlert(params: {
   }
   return params.thresholdLevel < params.lastAlertLevelSent;
 }
+
+/**
+ * Calcula los días calendario inclusive entre startDate y endDate (formato YYYY-MM-DD).
+ * Devuelve 0 si la fecha final es anterior a la inicial o inválida.
+ */
+export function computeInclusiveDays(startDate: string, endDate: string): number {
+  const startUtc = parseUtcDateOnly(startDate);
+  const endUtc = parseUtcDateOnly(endDate);
+  if (startUtc === null || endUtc === null || endUtc < startUtc) {
+    return 0;
+  }
+  return Math.floor((endUtc - startUtc) / 86_400_000) + 1;
+}
+
+/**
+ * Calcula la duración en minutos entre dos horas HH:mm.
+ * Si endTime <= startTime asume cruce de medianoche (turno nocturno).
+ */
+export function computeDurationMinutes(
+  startTime?: string | null,
+  endTime?: string | null,
+): number {
+  if (!startTime || !endTime) return 0;
+  const startMatch = startTime.trim().match(/^(\d{1,2}):(\d{2})$/);
+  const endMatch = endTime.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!startMatch || !endMatch) return 0;
+
+  const sh = Number(startMatch[1]);
+  const sm = Number(startMatch[2]);
+  const eh = Number(endMatch[1]);
+  const em = Number(endMatch[2]);
+  if (sh > 23 || sm > 59 || eh > 23 || em > 59) return 0;
+
+  const startMin = sh * 60 + sm;
+  const endMin = eh * 60 + em;
+  if (endMin > startMin) {
+    return endMin - startMin;
+  }
+  return 24 * 60 - startMin + endMin;
+}
+
+export function formatDurationFromMinutes(minutes: number): string {
+  if (!minutes || minutes <= 0) return '0 h';
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? `${hours} h` : `${Number(hours.toFixed(2))} h`;
+}

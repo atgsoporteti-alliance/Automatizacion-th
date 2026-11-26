@@ -20,6 +20,7 @@ import { WorkflowsModule } from './modules/workflows/workflows.module';
 import { OffboardingModule } from './modules/offboarding/offboarding.module';
 import { CandidatePortalModule } from './modules/candidate-portal/candidate-portal.module';
 import { ExpirationsModule } from './modules/expirations/expirations.module';
+import { TimeRequestsModule } from './modules/time-requests/time-requests.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { ExpirationsModule } from './modules/expirations/expirations.module';
     OffboardingModule,
     CandidatePortalModule,
     ExpirationsModule,
+    TimeRequestsModule,
   ],
   providers: [
     {

@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarClock,
   ClipboardCheck,
+  Clock4,
   Cpu,
   ExternalLink,
   FileSearch,
@@ -71,6 +72,12 @@ const NAV_GROUPS: NavGroup[] = [
         allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'IT_SUPPORT', 'SUPER_ADMIN'],
       },
       {
+        href: '/dashboard/novedades',
+        label: 'Novedades y Horas Extra',
+        icon: Clock4,
+        allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN'],
+      },
+      {
         href: '/dashboard/offboarding',
         label: 'Offboarding',
         icon: UserMinus,
@@ -125,6 +132,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/dashboard/candidatos': 'Talento Humano · Selección y Candidatos',
   '/dashboard/th': 'Talento Humano · Validación',
   '/dashboard/vencimientos': 'Alertas Automáticas · Vencimientos',
+  '/dashboard/novedades': 'Incapacidades, Licencias, Permisos y Horas Extra',
   '/dashboard/it': 'IT & Helpdesk · Aprovisionamiento',
   '/dashboard/team': 'Líder de Área · Equipo y Puerta DSI',
   '/dashboard/offboarding': 'Offboarding · Paz y Salvo',

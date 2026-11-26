@@ -497,6 +497,43 @@ export class MailService {
     });
   }
 
+  async sendTimeRequestEmail(params: {
+    to: string;
+    recipientName?: string;
+    employeeName: string;
+    categoryLabel: string;
+    subtypeLabel: string;
+    title: string;
+    periodLabel: string;
+    durationLabel: string;
+    statusLabel: string;
+    reviewNote?: string | null;
+    dashboardUrl: string;
+  }) {
+    const greeting = params.recipientName ? `Hola ${escapeHtml(params.recipientName)},` : 'Hola,';
+    const noteHtml = params.reviewNote
+      ? `<p style="margin:8px 0 0 0;"><strong>Observación:</strong> ${escapeHtml(params.reviewNote)}</p>`
+      : '';
+
+    return this.sendEmail({
+      to: params.to,
+      subject: `${params.categoryLabel} (${params.statusLabel}): ${params.employeeName}`,
+      text: `${params.categoryLabel} (${params.subtypeLabel}) de ${params.employeeName} — ${params.title} | Periodo: ${params.periodLabel} (${params.durationLabel}) | Estado: ${params.statusLabel}${params.reviewNote ? ` | Nota: ${params.reviewNote}` : ''} | Panel: ${params.dashboardUrl}`,
+      html: this.renderLayout({
+        eyebrow: 'Novedades Laborales y Tiempo',
+        title: `${params.categoryLabel}: ${params.statusLabel}`,
+        bodyHtml: `<p style="margin:0 0 10px 0;">${greeting}</p>
+          <p style="margin:0 0 6px 0;"><strong>Colaborador:</strong> ${escapeHtml(params.employeeName)}</p>
+          <p style="margin:0 0 6px 0;"><strong>Novedad:</strong> ${escapeHtml(params.title)} (${escapeHtml(params.subtypeLabel)})</p>
+          <p style="margin:0 0 6px 0;"><strong>Periodo:</strong> ${escapeHtml(params.periodLabel)} (${escapeHtml(params.durationLabel)})</p>
+          <p style="margin:0 0 6px 0;"><strong>Estado actual:</strong> ${escapeHtml(params.statusLabel)}</p>
+          ${noteHtml}`,
+        ctaLabel: 'Ver en Novedades y Horas Extra',
+        ctaUrl: params.dashboardUrl,
+      }),
+    });
+  }
+
   async sendMagicLinkInviteEmail(params: {
     to: string;
     candidateName?: string;

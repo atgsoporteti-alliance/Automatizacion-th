@@ -13,6 +13,8 @@ import {
   MeetingStatus,
   OperationalArea,
   SystemRole,
+  TimeRequestCategory,
+  TimeRequestStatus,
   UserClearanceDepartment,
   UserOperationalArea,
   WorkflowStep,
@@ -772,7 +774,150 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify({}),
     }),
+  getTimeRequests: (filters?: {
+    category?: TimeRequestCategory;
+    status?: TimeRequestStatus;
+    operationalArea?: OperationalArea;
+    search?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.category) params.set('category', filters.category);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.operationalArea) params.set('operationalArea', filters.operationalArea);
+    if (filters?.search?.trim()) params.set('search', filters.search.trim());
+    const qs = params.toString();
+    return apiFetch<TimeRequestListResponse>(`/time-requests${qs ? `?${qs}` : ''}`);
+  },
+  createTimeRequest: (payload: {
+    employeeId: string;
+    category: TimeRequestCategory;
+    subtype: string;
+    title: string;
+    startDate: string;
+    endDate?: string;
+    startTime?: string;
+    endTime?: string;
+    isPaid?: boolean;
+    medicalEntity?: string;
+    diagnosisCode?: string;
+    compensationType?: string;
+    reason?: string;
+    createExpirationAlert?: boolean;
+    alertDaysBefore?: number;
+    autoApproveByTh?: boolean;
+  }) =>
+    apiFetch<TimeRequestItem>('/time-requests', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  reviewTimeRequest: (
+    id: string,
+    payload: {
+      decision: 'APPROVE' | 'REJECT' | 'CANCEL';
+      note?: string;
+      createExpirationAlert?: boolean;
+    },
+  ) =>
+    apiFetch<TimeRequestItem>(`/time-requests/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  uploadTimeRequestSupport: async (id: string, file: File): Promise<TimeRequestItem> => {
+    const authHeaders = await getAuthHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE}/time-requests/${id}/support`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let msg = `Error subiendo soporte (${response.status})`;
+      try {
+        const parsed = (await response.json()) as { message?: string | string[] };
+        if (Array.isArray(parsed.message)) msg = parsed.message.join(', ');
+        else if (parsed.message) msg = parsed.message;
+      } catch {
+        // ignore json parse error
+      }
+      throw new Error(msg);
+    }
+
+    return response.json();
+  },
 };
+
+export interface TimeRequestItem {
+  id: string;
+  employeeId: string;
+  operationalArea: OperationalArea | null;
+  category: TimeRequestCategory;
+  subtype: string;
+  subtypeLabel: string;
+  title: string;
+  status: TimeRequestStatus;
+  startDate: string;
+  endDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  daysCount: number;
+  durationMinutes: number;
+  durationLabel: string;
+  surchargePercent: number | null;
+  isPaid: boolean;
+  medicalEntity: string | null;
+  diagnosisCode: string | null;
+  compensationType: string | null;
+  reason: string | null;
+  supportFileName: string | null;
+  supportMimeType: string | null;
+  supportFileSize: number;
+  supportS3Key: string | null;
+  supportS3Url: string | null;
+  linkedExpirationId: string | null;
+  alertDaysBefore: number;
+  pendingExpirationAlert: boolean;
+  leaderReviewedBy: string | null;
+  leaderReviewedAt: string | null;
+  thReviewedBy: string | null;
+  thReviewedAt: string | null;
+  reviewNote: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  employee?: {
+    id: string;
+    fullName: string;
+    nationalId: string;
+    personalEmail: string;
+    corporateEmail: string | null;
+    operationalArea: OperationalArea | null;
+    reportingManagerEmail: string | null;
+    jobTitle: string | null;
+    status: EmployeeStatus;
+  } | null;
+  linkedExpiration?: {
+    id: string;
+    expiresAt: string;
+    status: ExpirationStatus;
+  } | null;
+}
+
+export interface TimeRequestListResponse {
+  kpis: {
+    totalCount: number;
+    pendingCount: number;
+    approvedIncapacitiesCount: number;
+    approvedIncapacityDays: number;
+    approvedLeavesAndPermissionsCount: number;
+    approvedOvertimeCount: number;
+    approvedOvertimeMinutes: number;
+    approvedOvertimeHoursLabel: string;
+  };
+  items: TimeRequestItem[];
+}
 
 export interface ExpirationEvaluationSummary {
   daysRemaining: number;

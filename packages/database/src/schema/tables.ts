@@ -25,6 +25,8 @@ import {
   meetingStatusEnum,
   operationalAreaEnum,
   shirtSizeEnum,
+  timeRequestCategoryEnum,
+  timeRequestStatusEnum,
   userClearanceDepartmentEnum,
   userOperationalAreaEnum,
   userRoleEnum,
@@ -377,3 +379,60 @@ export const expirationRecords = pgTable(
 
 export type ExpirationRecord = typeof expirationRecords.$inferSelect;
 export type NewExpirationRecord = typeof expirationRecords.$inferInsert;
+
+/**
+ * 12. time_requests — Novedades Laborales (Incapacidades, Licencias, Permisos Personales y Horas Extra)
+ */
+export const timeRequests = pgTable(
+  'time_requests',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    operationalArea: operationalAreaEnum('operational_area'),
+    category: timeRequestCategoryEnum('category').notNull(),
+    subtype: varchar('subtype', { length: 80 }).notNull(),
+    title: varchar('title', { length: 180 }).notNull(),
+    status: timeRequestStatusEnum('status').notNull().default('PENDING_TH'),
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date').notNull(),
+    startTime: varchar('start_time', { length: 10 }),
+    endTime: varchar('end_time', { length: 10 }),
+    daysCount: integer('days_count').notNull().default(0),
+    durationMinutes: integer('duration_minutes').notNull().default(0),
+    isPaid: boolean('is_paid').notNull().default(true),
+    medicalEntity: varchar('medical_entity', { length: 120 }),
+    diagnosisCode: varchar('diagnosis_code', { length: 40 }),
+    compensationType: varchar('compensation_type', { length: 60 }),
+    reason: text('reason'),
+    supportFileName: varchar('support_file_name', { length: 255 }),
+    supportMimeType: varchar('support_mime_type', { length: 120 }),
+    supportFileSize: integer('support_file_size').notNull().default(0),
+    supportS3Key: varchar('support_s3_key', { length: 500 }),
+    supportS3Url: text('support_s3_url'),
+    linkedExpirationId: uuid('linked_expiration_id').references(() => expirationRecords.id, {
+      onDelete: 'set null',
+    }),
+    alertDaysBefore: integer('alert_days_before').notNull().default(7),
+    pendingExpirationAlert: boolean('pending_expiration_alert').notNull().default(false),
+    leaderReviewedBy: varchar('leader_reviewed_by', { length: 150 }),
+    leaderReviewedAt: timestamp('leader_reviewed_at', { withTimezone: true }),
+    thReviewedBy: varchar('th_reviewed_by', { length: 150 }),
+    thReviewedAt: timestamp('th_reviewed_at', { withTimezone: true }),
+    reviewNote: text('review_note'),
+    createdBy: varchar('created_by', { length: 150 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('time_requests_employee_idx').on(table.employeeId),
+    index('time_requests_category_idx').on(table.category),
+    index('time_requests_status_idx').on(table.status),
+    index('time_requests_start_date_idx').on(table.startDate),
+    index('time_requests_area_idx').on(table.operationalArea),
+  ],
+);
+
+export type TimeRequest = typeof timeRequests.$inferSelect;
+export type NewTimeRequest = typeof timeRequests.$inferInsert;

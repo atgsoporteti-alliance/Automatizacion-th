@@ -9,6 +9,7 @@ import {
   employees,
   expirationRecords,
   onboardingOffboardingWorkflows,
+  timeRequests,
 } from './tables';
 
 export const employeesRelations = relations(employees, ({ many }) => ({
@@ -17,6 +18,7 @@ export const employeesRelations = relations(employees, ({ many }) => ({
   documents: many(employeeDocuments),
   candidateProcesses: many(candidateProcesses),
   expirations: many(expirationRecords),
+  timeRequests: many(timeRequests),
 }));
 
 export const workflowsRelations = relations(onboardingOffboardingWorkflows, ({ one, many }) => ({
@@ -80,5 +82,16 @@ export const expirationRecordsRelations = relations(expirationRecords, ({ one })
   employee: one(employees, {
     fields: [expirationRecords.employeeId],
     references: [employees.id],
+  }),
+}));
+
+export const timeRequestsRelations = relations(timeRequests, ({ one }) => ({
+  employee: one(employees, {
+    fields: [timeRequests.employeeId],
+    references: [employees.id],
+  }),
+  linkedExpiration: one(expirationRecords, {
+    fields: [timeRequests.linkedExpirationId],
+    references: [expirationRecords.id],
   }),
 }));

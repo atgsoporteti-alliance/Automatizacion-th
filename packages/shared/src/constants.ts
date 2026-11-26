@@ -275,3 +275,80 @@ export const EXPIRATION_SEVERITY_LABELS: Record<ExpirationSeverity, string> = {
 };
 
 export const EXPIRATION_ALERT_THRESHOLDS = [30, 15, 7, 0] as const;
+
+export const TIME_REQUEST_CATEGORIES = [
+  'INCAPACITY',
+  'LICENSE',
+  'PERSONAL_PERMISSION',
+  'OVERTIME',
+] as const;
+export type TimeRequestCategory = (typeof TIME_REQUEST_CATEGORIES)[number];
+
+export const TIME_REQUEST_CATEGORY_LABELS: Record<TimeRequestCategory, string> = {
+  INCAPACITY: 'Incapacidad',
+  LICENSE: 'Licencia',
+  PERSONAL_PERMISSION: 'Permiso Personal',
+  OVERTIME: 'Horas Extra',
+};
+
+export const TIME_REQUEST_STATUSES = [
+  'PENDING_LEADER',
+  'PENDING_TH',
+  'APPROVED',
+  'REJECTED',
+  'CANCELLED',
+] as const;
+export type TimeRequestStatus = (typeof TIME_REQUEST_STATUSES)[number];
+
+export const TIME_REQUEST_STATUS_LABELS: Record<TimeRequestStatus, string> = {
+  PENDING_LEADER: 'Pendiente Líder',
+  PENDING_TH: 'Pendiente TH',
+  APPROVED: 'Aprobada',
+  REJECTED: 'Rechazada',
+  CANCELLED: 'Cancelada',
+};
+
+export const TIME_REQUEST_SUBTYPES: Record<
+  TimeRequestCategory,
+  Array<{ value: string; label: string; defaultPaid: boolean }>
+> = {
+  INCAPACITY: [
+    { value: 'ENFERMEDAD_GENERAL', label: 'Enfermedad General (EPS)', defaultPaid: true },
+    { value: 'ACCIDENTE_LABORAL', label: 'Accidente Laboral (ARL)', defaultPaid: true },
+    { value: 'ENFERMEDAD_LABORAL', label: 'Enfermedad Laboral (ARL)', defaultPaid: true },
+    { value: 'ACCIDENTE_TRANSITO', label: 'Accidente de Tránsito (SOAT)', defaultPaid: true },
+    { value: 'PRORROGA', label: 'Prórroga de Incapacidad', defaultPaid: true },
+  ],
+  LICENSE: [
+    { value: 'MATERNIDAD_PATERNIDAD', label: 'Maternidad / Paternidad', defaultPaid: true },
+    { value: 'LUTO', label: 'Licencia por Luto', defaultPaid: true },
+    { value: 'CALAMIDAD_DOMESTICA', label: 'Calamidad Doméstica', defaultPaid: true },
+    { value: 'LICENCIA_REMUNERADA', label: 'Licencia Remunerada', defaultPaid: true },
+    { value: 'LICENCIA_NO_REMUNERADA', label: 'Licencia No Remunerada', defaultPaid: false },
+    { value: 'MATRIMONIO', label: 'Licencia por Matrimonio', defaultPaid: true },
+  ],
+  PERSONAL_PERMISSION: [
+    { value: 'CITA_MEDICA', label: 'Cita Médica', defaultPaid: true },
+    { value: 'DILIGENCIA_PERSONAL', label: 'Diligencia Personal', defaultPaid: false },
+    { value: 'ESTUDIO', label: 'Permiso Académico / Examen', defaultPaid: true },
+    { value: 'COMPENSATORIO', label: 'Uso de Día / Horas Compensatorias', defaultPaid: true },
+    { value: 'CALAMIDAD_HORAS', label: 'Permiso Urgente por Horas', defaultPaid: true },
+  ],
+  OVERTIME: [
+    { value: 'EXTRA_DIURNA', label: 'Hora Extra Diurna (+25%)', defaultPaid: true },
+    { value: 'EXTRA_NOCTURNA', label: 'Hora Extra Nocturna (+75%)', defaultPaid: true },
+    { value: 'EXTRA_DOMINICAL_DIURNA', label: 'Extra Dominical/Festiva Diurna (+100%)', defaultPaid: true },
+    { value: 'EXTRA_DOMINICAL_NOCTURNA', label: 'Extra Dominical/Festiva Nocturna (+150%)', defaultPaid: true },
+    { value: 'RECARGO_NOCTURNO', label: 'Recargo Nocturno (+35%)', defaultPaid: true },
+    { value: 'COMPENSATORIO', label: 'Tiempo Compensatorio', defaultPaid: true },
+  ],
+};
+
+export const OVERTIME_SURCHARGE_PERCENT: Record<string, number> = {
+  EXTRA_DIURNA: 25,
+  EXTRA_NOCTURNA: 75,
+  EXTRA_DOMINICAL_DIURNA: 100,
+  EXTRA_DOMINICAL_NOCTURNA: 150,
+  RECARGO_NOCTURNO: 35,
+  COMPENSATORIO: 0,
+};
