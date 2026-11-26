@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Ban,
+  BellRing,
   Calendar,
   Check,
   CheckCircle2,
@@ -153,6 +154,15 @@ export default function ThDashboardPage() {
     queryFn: () => apiClient.getWorkflows({ flowType: 'ONBOARDING' }),
   });
 
+  const { data: expirationsSummary } = useQuery({
+    queryKey: ['expirations-summary'],
+    queryFn: () => apiClient.getExpirations(),
+  });
+  const expiringAlertCount =
+    (expirationsSummary?.kpis.expiredCount ?? 0) +
+    (expirationsSummary?.kpis.urgent7Count ?? 0) +
+    (expirationsSummary?.kpis.warning15Count ?? 0);
+
   const selectedWorkflow: WorkflowRecord | undefined =
     workflows.find((w) => w.id === selectedId) ?? workflows[0];
 
@@ -285,6 +295,16 @@ export default function ThDashboardPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/dashboard/vencimientos"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950 dark:border-zinc-800 dark:bg-[#0f0f12] dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+            >
+              <BellRing className="h-3.5 w-3.5" />
+              Vencimientos
+              {expiringAlertCount > 0 && (
+                <Badge variant="danger">{expiringAlertCount}</Badge>
+              )}
+            </Link>
             <Link
               href="/dashboard/candidatos"
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950 dark:border-zinc-800 dark:bg-[#0f0f12] dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"

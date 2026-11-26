@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
+  CalendarClock,
   ClipboardCheck,
   Cpu,
   ExternalLink,
@@ -64,6 +65,12 @@ const NAV_GROUPS: NavGroup[] = [
         allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN'],
       },
       {
+        href: '/dashboard/vencimientos',
+        label: 'Alertas Vencimiento',
+        icon: CalendarClock,
+        allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'IT_SUPPORT', 'SUPER_ADMIN'],
+      },
+      {
         href: '/dashboard/offboarding',
         label: 'Offboarding',
         icon: UserMinus,
@@ -117,6 +124,7 @@ const NAV_GROUPS: NavGroup[] = [
 const ROUTE_TITLES: Record<string, string> = {
   '/dashboard/candidatos': 'Talento Humano · Selección y Candidatos',
   '/dashboard/th': 'Talento Humano · Validación',
+  '/dashboard/vencimientos': 'Alertas Automáticas · Vencimientos',
   '/dashboard/it': 'IT & Helpdesk · Aprovisionamiento',
   '/dashboard/team': 'Líder de Área · Equipo y Puerta DSI',
   '/dashboard/offboarding': 'Offboarding · Paz y Salvo',

@@ -7,6 +7,7 @@ import {
   dataConsentSignatures,
   employeeDocuments,
   employees,
+  expirationRecords,
   onboardingOffboardingWorkflows,
 } from './tables';
 
@@ -15,6 +16,7 @@ export const employeesRelations = relations(employees, ({ many }) => ({
   consentSignatures: many(dataConsentSignatures),
   documents: many(employeeDocuments),
   candidateProcesses: many(candidateProcesses),
+  expirations: many(expirationRecords),
 }));
 
 export const workflowsRelations = relations(onboardingOffboardingWorkflows, ({ one, many }) => ({
@@ -71,5 +73,12 @@ export const candidateNotificationsRelations = relations(candidateNotifications,
   process: one(candidateProcesses, {
     fields: [candidateNotifications.processId],
     references: [candidateProcesses.id],
+  }),
+}));
+
+export const expirationRecordsRelations = relations(expirationRecords, ({ one }) => ({
+  employee: one(employees, {
+    fields: [expirationRecords.employeeId],
+    references: [employees.id],
   }),
 }));

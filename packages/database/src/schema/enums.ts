@@ -130,3 +130,17 @@ export const candidateNotificationTypeEnum = pgEnum('candidate_notification_type
   'MODIFICATION',
   'HIRING_APPROVED',
 ]);
+
+export const expirationCategoryEnum = pgEnum('expiration_category', [
+  'CONTRACT',
+  'LICENSE',
+  'CERTIFICATION',
+]);
+
+export const expirationStatusEnum = pgEnum('expiration_status', [
+  'ACTIVE',
+  'EXPIRING_SOON',
+  'EXPIRED',
+  'RENEWED',
+  'ARCHIVED',
+]);

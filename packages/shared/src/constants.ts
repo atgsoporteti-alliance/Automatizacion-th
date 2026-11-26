@@ -230,3 +230,48 @@ export const CANDIDATE_NOTIFICATION_TYPES = [
   'HIRING_APPROVED',
 ] as const;
 export type CandidateNotificationType = (typeof CANDIDATE_NOTIFICATION_TYPES)[number];
+
+export const EXPIRATION_CATEGORIES = ['CONTRACT', 'LICENSE', 'CERTIFICATION'] as const;
+export type ExpirationCategory = (typeof EXPIRATION_CATEGORIES)[number];
+
+export const EXPIRATION_CATEGORY_LABELS: Record<ExpirationCategory, string> = {
+  CONTRACT: 'Contrato',
+  LICENSE: 'Licencia',
+  CERTIFICATION: 'Certificación',
+};
+
+export const EXPIRATION_STATUSES = [
+  'ACTIVE',
+  'EXPIRING_SOON',
+  'EXPIRED',
+  'RENEWED',
+  'ARCHIVED',
+] as const;
+export type ExpirationStatus = (typeof EXPIRATION_STATUSES)[number];
+
+export const EXPIRATION_STATUS_LABELS: Record<ExpirationStatus, string> = {
+  ACTIVE: 'Vigente',
+  EXPIRING_SOON: 'Próximo a vencer',
+  EXPIRED: 'Vencido',
+  RENEWED: 'Renovado',
+  ARCHIVED: 'Archivado',
+};
+
+export const EXPIRATION_SEVERITIES = [
+  'OK',
+  'UPCOMING_30',
+  'WARNING_15',
+  'URGENT_7',
+  'EXPIRED',
+] as const;
+export type ExpirationSeverity = (typeof EXPIRATION_SEVERITIES)[number];
+
+export const EXPIRATION_SEVERITY_LABELS: Record<ExpirationSeverity, string> = {
+  OK: 'Al día',
+  UPCOMING_30: 'Preventiva',
+  WARNING_15: 'Por vencer (≤ 15d)',
+  URGENT_7: 'Crítica (≤ 7d)',
+  EXPIRED: 'Vencido',
+};
+
+export const EXPIRATION_ALERT_THRESHOLDS = [30, 15, 7, 0] as const;

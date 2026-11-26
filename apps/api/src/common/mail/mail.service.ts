@@ -424,6 +424,79 @@ export class MailService {
     });
   }
 
+  async sendExpirationAlertDigestEmail(params: {
+    to: string;
+    dashboardUrl: string;
+    items: Array<{
+      title: string;
+      categoryLabel: string;
+      severityLabel: string;
+      daysLabel: string;
+      expiresAtLabel: string;
+      employeeName?: string | null;
+      providerOrEntity?: string | null;
+      referenceCode?: string | null;
+    }>;
+  }) {
+    const count = params.items.length;
+    const rowsHtml = params.items
+      .map(
+        (item) => `
+          <tr>
+            <td style="padding:8px 10px;border-bottom:1px solid #e4e4e7;font-size:13px;">
+              <strong>${escapeHtml(item.title)}</strong><br/>
+              <span style="color:#52525b;font-size:12px;">
+                ${escapeHtml(item.categoryLabel)}${item.employeeName ? ` · ${escapeHtml(item.employeeName)}` : ''}${item.providerOrEntity ? ` · ${escapeHtml(item.providerOrEntity)}` : ''}${item.referenceCode ? ` · Ref: ${escapeHtml(item.referenceCode)}` : ''}
+              </span>
+            </td>
+            <td style="padding:8px 10px;border-bottom:1px solid #e4e4e7;font-size:12px;white-space:nowrap;">
+              <strong>${escapeHtml(item.expiresAtLabel)}</strong><br/>
+              <span style="color:#b91c1c;">${escapeHtml(item.daysLabel)}</span>
+            </td>
+            <td style="padding:8px 10px;border-bottom:1px solid #e4e4e7;font-size:12px;white-space:nowrap;">
+              ${escapeHtml(item.severityLabel)}
+            </td>
+          </tr>`,
+      )
+      .join('');
+
+    const textLines = params.items.map(
+      (i) =>
+        `- [${i.categoryLabel}] ${i.title}${i.employeeName ? ` (${i.employeeName})` : ''}: vence ${i.expiresAtLabel} · ${i.daysLabel}`,
+    );
+
+    const subject =
+      count === 1
+        ? `Alerta de vencimiento (${params.items[0].daysLabel}): ${params.items[0].title}`
+        : `Alertas de vencimiento (${count} elementos por atender) · Alliance HCM`;
+
+    return this.sendEmail({
+      to: params.to,
+      subject,
+      text: `Alertas automáticas de vencimiento en Alliance HCM:\n${textLines.join('\n')}\nPanel: ${params.dashboardUrl}`,
+      html: this.renderLayout({
+        eyebrow: 'Alertas de Vencimiento',
+        title:
+          count === 1
+            ? `Vencimiento próximo o cumplido: ${params.items[0].title}`
+            : `${count} contratos, licencias o certificaciones requieren atención`,
+        bodyHtml: `<p style="margin:0 0 12px 0;">Se detectaron los siguientes vencimientos dentro de la ventana de alerta configurada:</p>
+          <table role="presentation" style="width:100%;border-collapse:collapse;border:1px solid #e4e4e7;border-radius:6px;">
+            <thead>
+              <tr style="background:#f4f4f5;text-align:left;font-size:11px;color:#52525b;">
+                <th style="padding:8px 10px;border-bottom:1px solid #e4e4e7;">Registro</th>
+                <th style="padding:8px 10px;border-bottom:1px solid #e4e4e7;">Fecha</th>
+                <th style="padding:8px 10px;border-bottom:1px solid #e4e4e7;">Nivel</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>`,
+        ctaLabel: 'Abrir panel de Vencimientos',
+        ctaUrl: params.dashboardUrl,
+      }),
+    });
+  }
+
   async sendMagicLinkInviteEmail(params: {
     to: string;
     candidateName?: string;

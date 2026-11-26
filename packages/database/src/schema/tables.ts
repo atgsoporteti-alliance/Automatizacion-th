@@ -19,6 +19,8 @@ import {
   documentTypeEnum,
   educationLevelEnum,
   employeeStatusEnum,
+  expirationCategoryEnum,
+  expirationStatusEnum,
   maritalStatusEnum,
   meetingStatusEnum,
   operationalAreaEnum,
@@ -336,3 +338,42 @@ export type CandidateProcess = typeof candidateProcesses.$inferSelect;
 export type NewCandidateProcess = typeof candidateProcesses.$inferInsert;
 export type CandidateMeeting = typeof candidateMeetings.$inferSelect;
 export type CandidateNotification = typeof candidateNotifications.$inferSelect;
+
+/**
+ * 11. expiration_records — Control y Alertas de Vencimiento (Contratos, Licencias, Certificaciones)
+ */
+export const expirationRecords = pgTable(
+  'expiration_records',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    category: expirationCategoryEnum('category').notNull(),
+    title: varchar('title', { length: 180 }).notNull(),
+    employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'set null' }),
+    operationalArea: operationalAreaEnum('operational_area'),
+    referenceCode: varchar('reference_code', { length: 100 }),
+    providerOrEntity: varchar('provider_or_entity', { length: 150 }),
+    startsAt: date('starts_at'),
+    expiresAt: date('expires_at').notNull(),
+    alertDaysBefore: integer('alert_days_before').notNull().default(30),
+    notifyEmployee: boolean('notify_employee').notNull().default(false),
+    recipientEmails: jsonb('recipient_emails').$type<string[]>().notNull().default([]),
+    status: expirationStatusEnum('status').notNull().default('ACTIVE'),
+    lastAlertLevelSent: integer('last_alert_level_sent'),
+    lastAlertSentAt: timestamp('last_alert_sent_at', { withTimezone: true }),
+    renewedAt: timestamp('renewed_at', { withTimezone: true }),
+    notes: text('notes'),
+    createdBy: varchar('created_by', { length: 150 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('expiration_records_category_idx').on(table.category),
+    index('expiration_records_status_idx').on(table.status),
+    index('expiration_records_expires_at_idx').on(table.expiresAt),
+    index('expiration_records_employee_idx').on(table.employeeId),
+    index('expiration_records_area_idx').on(table.operationalArea),
+  ],
+);
+
+export type ExpirationRecord = typeof expirationRecords.$inferSelect;
+export type NewExpirationRecord = typeof expirationRecords.$inferInsert;

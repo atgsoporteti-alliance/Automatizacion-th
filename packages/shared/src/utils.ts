@@ -176,3 +176,109 @@ export function parseMeetingUrl(rawUrl?: string | null): ParsedMeetingUrl {
     platform: detectMeetingPlatform(normalizedUrl),
   };
 }
+
+export interface ExpirationEvaluation {
+  daysRemaining: number;
+  severity: 'OK' | 'UPCOMING_30' | 'WARNING_15' | 'URGENT_7' | 'EXPIRED';
+  effectiveStatus: 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED' | 'RENEWED' | 'ARCHIVED';
+  thresholdLevel: number | null;
+}
+
+function parseUtcDateOnly(dateInput: string | Date): number | null {
+  if (typeof dateInput === 'string') {
+    const match = dateInput.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    }
+    const parsed = new Date(dateInput);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
+  }
+
+  if (Number.isNaN(dateInput.getTime())) return null;
+  return Date.UTC(dateInput.getUTCFullYear(), dateInput.getUTCMonth(), dateInput.getUTCDate());
+}
+
+/**
+ * Evalúa los días restantes y la severidad de vencimiento de un contrato, licencia o certificación
+ * usando comparación de fecha calendario UTC (YYYY-MM-DD).
+ */
+export function evaluateExpirationStatus(params: {
+  expiresAt: string | Date;
+  status?: 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED' | 'RENEWED' | 'ARCHIVED';
+  alertDaysBefore?: number;
+  referenceDate?: Date;
+}): ExpirationEvaluation {
+  const ref = params.referenceDate ?? new Date();
+  const refUtc = Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate());
+  const expUtc = parseUtcDateOnly(params.expiresAt);
+  const daysRemaining = expUtc === null ? 0 : Math.ceil((expUtc - refUtc) / 86_400_000);
+  const leadDays = Math.max(1, params.alertDaysBefore ?? 30);
+
+  if (params.status === 'RENEWED' || params.status === 'ARCHIVED') {
+    return {
+      daysRemaining,
+      severity: 'OK',
+      effectiveStatus: params.status,
+      thresholdLevel: null,
+    };
+  }
+
+  if (daysRemaining <= 0) {
+    return {
+      daysRemaining,
+      severity: 'EXPIRED',
+      effectiveStatus: 'EXPIRED',
+      thresholdLevel: 0,
+    };
+  }
+
+  if (daysRemaining <= 7) {
+    return {
+      daysRemaining,
+      severity: 'URGENT_7',
+      effectiveStatus: 'EXPIRING_SOON',
+      thresholdLevel: 7,
+    };
+  }
+
+  if (daysRemaining <= 15 && leadDays >= 15) {
+    return {
+      daysRemaining,
+      severity: 'WARNING_15',
+      effectiveStatus: 'EXPIRING_SOON',
+      thresholdLevel: 15,
+    };
+  }
+
+  if (daysRemaining <= leadDays) {
+    return {
+      daysRemaining,
+      severity: 'UPCOMING_30',
+      effectiveStatus: 'EXPIRING_SOON',
+      thresholdLevel: leadDays > 15 ? leadDays : daysRemaining <= 15 ? 15 : leadDays,
+    };
+  }
+
+  return {
+    daysRemaining,
+    severity: 'OK',
+    effectiveStatus: 'ACTIVE',
+    thresholdLevel: null,
+  };
+}
+
+/**
+ * Determina si debe enviarse una nueva alerta sin repetir notificaciones para el mismo umbral.
+ * Los umbrales son decrecientes (ej. 30 -> 15 -> 7 -> 0).
+ */
+export function shouldSendExpirationAlert(params: {
+  thresholdLevel: number | null;
+  lastAlertLevelSent?: number | null;
+}): boolean {
+  if (params.thresholdLevel === null) return false;
+  if (params.lastAlertLevelSent === null || params.lastAlertLevelSent === undefined) {
+    return true;
+  }
+  return params.thresholdLevel < params.lastAlertLevelSent;
+}

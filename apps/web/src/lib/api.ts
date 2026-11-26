@@ -6,6 +6,9 @@ import {
   ClearanceDepartment,
   ClearanceStatus,
   EmployeeStatus,
+  ExpirationCategory,
+  ExpirationSeverity,
+  ExpirationStatus,
   InternalRole,
   MeetingStatus,
   OperationalArea,
@@ -683,4 +686,176 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  getExpirations: (filters?: {
+    category?: ExpirationCategory;
+    status?: ExpirationStatus;
+    operationalArea?: OperationalArea;
+    search?: string;
+    includeArchived?: boolean;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.category) params.set('category', filters.category);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.operationalArea) params.set('operationalArea', filters.operationalArea);
+    if (filters?.search?.trim()) params.set('search', filters.search.trim());
+    if (filters?.includeArchived) params.set('includeArchived', '1');
+    const qs = params.toString();
+    return apiFetch<ExpirationListResponse>(`/expirations${qs ? `?${qs}` : ''}`);
+  },
+  createExpiration: (payload: {
+    category: ExpirationCategory;
+    title: string;
+    employeeId?: string;
+    operationalArea?: OperationalArea;
+    referenceCode?: string;
+    providerOrEntity?: string;
+    startsAt?: string;
+    expiresAt: string;
+    alertDaysBefore?: number;
+    notifyEmployee?: boolean;
+    recipientEmails?: string[];
+    notes?: string;
+  }) =>
+    apiFetch<ExpirationRecordItem>('/expirations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateExpiration: (
+    id: string,
+    payload: {
+      category?: ExpirationCategory;
+      title?: string;
+      employeeId?: string | null;
+      operationalArea?: OperationalArea | null;
+      referenceCode?: string;
+      providerOrEntity?: string;
+      startsAt?: string;
+      expiresAt?: string;
+      alertDaysBefore?: number;
+      notifyEmployee?: boolean;
+      recipientEmails?: string[];
+      notes?: string;
+    },
+  ) =>
+    apiFetch<ExpirationRecordItem>(`/expirations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  renewExpiration: (
+    id: string,
+    payload: {
+      newExpiresAt: string;
+      startsAt?: string;
+      referenceCode?: string;
+      notes?: string;
+    },
+  ) =>
+    apiFetch<ExpirationRecordItem>(`/expirations/${id}/renew`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  archiveExpiration: (id: string) =>
+    apiFetch<ExpirationRecordItem>(`/expirations/${id}/archive`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+  updateDocumentExpiration: (docId: string, expirationDate: string | null) =>
+    apiFetch<{ id: string; expirationDate: string | null }>(
+      `/expirations/documents/${docId}/expiration`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ expirationDate }),
+      },
+    ),
+  runExpirationScan: (force?: boolean) =>
+    apiFetch<ExpirationScanResult>(`/expirations/scan${force ? '?force=1' : ''}`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
 };
+
+export interface ExpirationEvaluationSummary {
+  daysRemaining: number;
+  severity: ExpirationSeverity;
+  effectiveStatus: ExpirationStatus;
+  thresholdLevel: number | null;
+  daysLabel: string;
+  severityLabel: string;
+}
+
+export interface ExpirationRecordItem {
+  id: string;
+  category: ExpirationCategory;
+  title: string;
+  employeeId: string | null;
+  operationalArea: OperationalArea | null;
+  referenceCode: string | null;
+  providerOrEntity: string | null;
+  startsAt: string | null;
+  expiresAt: string;
+  alertDaysBefore: number;
+  notifyEmployee: boolean;
+  recipientEmails: string[];
+  status: ExpirationStatus;
+  lastAlertLevelSent: number | null;
+  lastAlertSentAt: string | null;
+  renewedAt: string | null;
+  notes: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  employee?: {
+    id: string;
+    fullName: string;
+    nationalId: string;
+    personalEmail: string;
+    corporateEmail: string | null;
+    operationalArea: OperationalArea | null;
+    reportingManagerEmail: string | null;
+    status: EmployeeStatus;
+  } | null;
+  evaluation: ExpirationEvaluationSummary;
+}
+
+export interface ExpirationDocumentAlert {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  nationalId: string;
+  operationalArea: OperationalArea | null;
+  documentType: string;
+  fileName: string;
+  expirationDate: string;
+  evaluation: ExpirationEvaluationSummary;
+}
+
+export interface ExpirationListResponse {
+  kpis: {
+    totalActive: number;
+    expiredCount: number;
+    urgent7Count: number;
+    warning15Count: number;
+    upcoming30Count: number;
+    onTrackCount: number;
+    contractsCount: number;
+    licensesCount: number;
+    certificationsCount: number;
+    documentsWithExpirationCount: number;
+  };
+  items: ExpirationRecordItem[];
+  documentExpirations: ExpirationDocumentAlert[];
+}
+
+export interface ExpirationScanResult {
+  checkedCount: number;
+  statusUpdatedCount: number;
+  alertsTriggeredCount: number;
+  recipientsCount: number;
+  emailsSentCount: number;
+  dispatchedTo: Array<{
+    email: string;
+    itemsCount: number;
+    sent: boolean;
+    reason?: string;
+  }>;
+}
