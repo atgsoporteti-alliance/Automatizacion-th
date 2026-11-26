@@ -46,7 +46,7 @@ interface NavGroup {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Talento Humano',
+    label: '1. Selección e Ingreso',
     items: [
       {
         href: '/dashboard/candidatos',
@@ -61,28 +61,50 @@ const NAV_GROUPS: NavGroup[] = [
         allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN'],
       },
       {
-        href: '/dashboard/th',
-        label: 'Validación TH',
-        icon: ClipboardCheck,
-        allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN'],
-      },
-      {
         href: '/dashboard/th?invite=1',
         label: 'Link Pre-Ingreso',
         icon: Link2,
         allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN'],
       },
       {
-        href: '/dashboard/vencimientos',
-        label: 'Alertas Vencimiento',
-        icon: CalendarClock,
-        allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'IT_SUPPORT', 'SUPER_ADMIN'],
+        href: '/dashboard/th',
+        label: 'Validación TH',
+        icon: ClipboardCheck,
+        allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN'],
       },
+    ],
+  },
+  {
+    label: '2. Activación Técnica e IT',
+    items: [
+      {
+        href: '/dashboard/team',
+        label: 'Mi Equipo y DSI',
+        icon: Users,
+        allowedRoles: ['AREA_LEADER', 'SUPER_ADMIN'],
+      },
+      {
+        href: '/dashboard/it',
+        label: 'IT / Helpdesk',
+        icon: Cpu,
+        allowedRoles: ['IT_SUPPORT', 'SUPER_ADMIN'],
+      },
+    ],
+  },
+  {
+    label: '3. Ciclo Activo y Retiro',
+    items: [
       {
         href: '/dashboard/novedades',
         label: 'Novedades y Horas Extra',
         icon: Clock4,
         allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN'],
+      },
+      {
+        href: '/dashboard/vencimientos',
+        label: 'Alertas Vencimiento',
+        icon: CalendarClock,
+        allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'IT_SUPPORT', 'SUPER_ADMIN'],
       },
       {
         href: '/dashboard/offboarding',
@@ -96,23 +118,6 @@ const NAV_GROUPS: NavGroup[] = [
           'CLEARANCE_APPROVER',
           'SUPER_ADMIN',
         ],
-      },
-    ],
-  },
-  {
-    label: 'Operación',
-    items: [
-      {
-        href: '/dashboard/team',
-        label: 'Mi Equipo y DSI',
-        icon: Users,
-        allowedRoles: ['AREA_LEADER', 'SUPER_ADMIN'],
-      },
-      {
-        href: '/dashboard/it',
-        label: 'IT / Helpdesk',
-        icon: Cpu,
-        allowedRoles: ['IT_SUPPORT', 'SUPER_ADMIN'],
       },
     ],
   },
