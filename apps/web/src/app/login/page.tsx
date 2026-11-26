@@ -214,6 +214,24 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
+        <button
+          type="button"
+          onClick={() => router.push('/flujo')}
+          className="flex w-full items-center justify-between gap-2 rounded-lg border border-zinc-200/90 bg-white px-3.5 py-2.5 text-left transition-colors hover:border-zinc-400 hover:bg-zinc-50 cursor-pointer dark:border-zinc-800/90 dark:bg-[#0f0f12] dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
+        >
+          <div className="min-w-0">
+            <span className="block text-xs font-medium text-zinc-900 dark:text-zinc-100 truncate">
+              Flujo Completo del Sistema (Presentación)
+            </span>
+            <span className="block text-[11px] text-zinc-500 truncate">
+              10 pasos interactivos: Postulación → Contratación → Renuncia / Despido
+            </span>
+          </div>
+          <Badge variant="purple" className="shrink-0">
+            Presentación
+          </Badge>
+        </button>
+
         {isUatBypassEnabled && uatProfiles.length > 0 && (
           <div className="space-y-2.5 pt-2">
             <div className="flex items-center justify-between px-1">

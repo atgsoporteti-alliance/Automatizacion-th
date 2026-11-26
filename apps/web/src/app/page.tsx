@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   ClipboardCheck,
   Cpu,
+  GitBranch,
   Link2,
   UserCheck,
   UserMinus,
@@ -18,6 +19,15 @@ import {
 } from '@/components/ui/primitives';
 
 const MODULES = [
+  {
+    href: '/flujo',
+    title: 'Flujo End-to-End (Presentación)',
+    subtitle: 'Paso 1 a Paso 10 · Postulación a Salida',
+    description:
+      'Mapa visual interactivo para presentar el ciclo completo: selección, Teams/Meet, pre-ingreso 24 campos, DSI, IT y renuncia o despido.',
+    badge: 'Presentación',
+    icon: GitBranch,
+  },
   {
     href: '/dashboard/candidatos',
     title: 'Selección & Portal Candidato',
