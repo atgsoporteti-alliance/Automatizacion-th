@@ -1073,14 +1073,32 @@ export default function ThCandidatesPage() {
                 {/* 3. Reuniones y Entrevistas */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4 text-zinc-500" />
-                      Reuniones y Entrevistas ({selected.meetings.length})
-                    </CardTitle>
-                    <CardDescription>
-                      Las reuniones programadas y sus enlaces de Microsoft Teams o Google Meet se
-                      publican inmediatamente en el portal del candidato y se envían por correo.
-                    </CardDescription>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <CardTitle className="flex flex-wrap items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4 text-zinc-500" />
+                          Reuniones y Entrevistas ({selected.meetings.length})
+                          {selected.evaluationSummary && selected.evaluationSummary.count > 0 && (
+                            <Badge variant="success">
+                              Competencias:{' '}
+                              {selected.evaluationSummary.averageScore?.toFixed(2)} / 5 ·{' '}
+                              {selected.evaluationSummary.latestRecommendationLabel}
+                            </Badge>
+                          )}
+                        </CardTitle>
+                        <CardDescription>
+                          Las reuniones programadas y sus enlaces de Microsoft Teams o Google Meet se
+                          publican inmediatamente en el portal del candidato y se envían por correo.
+                        </CardDescription>
+                      </div>
+                      <Link
+                        href="/dashboard/entrevistas"
+                        className="inline-flex h-7 items-center gap-1.5 rounded border border-zinc-200 px-2.5 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                      >
+                        Agenda global y evaluar competencias
+                        <ExternalLink className="h-3 w-3 opacity-70" />
+                      </Link>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {selected.meetings.length > 0 && (

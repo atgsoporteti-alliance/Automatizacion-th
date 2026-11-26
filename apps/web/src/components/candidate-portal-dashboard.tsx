@@ -853,24 +853,36 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
                         </p>
                       )}
                       {m.notes && <p className="text-zinc-600 dark:text-zinc-400">{m.notes}</p>}
-                      {m.meetingUrl && m.status !== 'CANCELLED' ? (
-                        <a
-                          href={m.meetingUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex h-7 items-center gap-1.5 rounded border border-zinc-200 bg-zinc-50 px-2.5 text-[11px] font-medium text-zinc-900 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-                        >
-                          <Video className="h-3 w-3" />
-                          {joinLabel}
-                          <ExternalLink className="h-3 w-3 opacity-70" />
-                        </a>
-                      ) : (
-                        m.status !== 'CANCELLED' && (
-                          <p className="text-[11px] text-zinc-400">
-                            Enlace de Teams / Meet pendiente de asignar por Talento Humano.
-                          </p>
-                        )
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {m.meetingUrl && m.status !== 'CANCELLED' ? (
+                          <a
+                            href={m.meetingUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-7 items-center gap-1.5 rounded border border-zinc-200 bg-zinc-50 px-2.5 text-[11px] font-medium text-zinc-900 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                          >
+                            <Video className="h-3 w-3" />
+                            {joinLabel}
+                            <ExternalLink className="h-3 w-3 opacity-70" />
+                          </a>
+                        ) : (
+                          m.status !== 'CANCELLED' && (
+                            <p className="text-[11px] text-zinc-400">
+                              Enlace de Teams / Meet pendiente de asignar por Talento Humano.
+                            </p>
+                          )
+                        )}
+                        {m.status !== 'CANCELLED' && !isDemoMode && (
+                          <a
+                            href={`${API_BASE}/candidate-portal/public/${encodeURIComponent(token)}/meetings/${m.id}/ics`}
+                            download
+                            className="inline-flex h-7 items-center gap-1.5 rounded border border-zinc-200 px-2.5 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                          >
+                            <Calendar className="h-3 w-3" />
+                            Agregar al calendario (.ics)
+                          </a>
+                        )}
+                      </div>
                     </div>
                   );
                 })

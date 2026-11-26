@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm';
 import {
+  candidateCompetencyEvaluations,
   candidateMeetings,
   candidateNotifications,
   candidateProcesses,
@@ -62,13 +63,15 @@ export const candidateProcessesRelations = relations(candidateProcesses, ({ one,
   }),
   meetings: many(candidateMeetings),
   notifications: many(candidateNotifications),
+  evaluations: many(candidateCompetencyEvaluations),
 }));
 
-export const candidateMeetingsRelations = relations(candidateMeetings, ({ one }) => ({
+export const candidateMeetingsRelations = relations(candidateMeetings, ({ one, many }) => ({
   process: one(candidateProcesses, {
     fields: [candidateMeetings.processId],
     references: [candidateProcesses.id],
   }),
+  evaluations: many(candidateCompetencyEvaluations),
 }));
 
 export const candidateNotificationsRelations = relations(candidateNotifications, ({ one }) => ({
@@ -95,3 +98,17 @@ export const timeRequestsRelations = relations(timeRequests, ({ one }) => ({
     references: [expirationRecords.id],
   }),
 }));
+
+export const candidateCompetencyEvaluationsRelations = relations(
+  candidateCompetencyEvaluations,
+  ({ one }) => ({
+    process: one(candidateProcesses, {
+      fields: [candidateCompetencyEvaluations.processId],
+      references: [candidateProcesses.id],
+    }),
+    meeting: one(candidateMeetings, {
+      fields: [candidateCompetencyEvaluations.meetingId],
+      references: [candidateMeetings.id],
+    }),
+  }),
+);

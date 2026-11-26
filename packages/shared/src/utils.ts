@@ -328,3 +328,73 @@ export function formatDurationFromMinutes(minutes: number): string {
   const hours = minutes / 60;
   return Number.isInteger(hours) ? `${hours} h` : `${Number(hours.toFixed(2))} h`;
 }
+
+export interface CompetencyScoreEntry {
+  key: string;
+  label: string;
+  score: number;
+  weight?: number;
+  observation?: string;
+}
+
+export interface CompetencyScoreSummary {
+  overallScore: number;
+  overallScoreScaled100: number;
+  percentageScore: number;
+  dimensionCount: number;
+}
+
+/**
+ * Calcula el promedio ponderado (escala 1.00 - 5.00) y porcentaje de cumplimiento
+ * a partir de una rúbrica de competencias evaluadas.
+ */
+export function computeCompetencyScoreSummary(
+  entries: CompetencyScoreEntry[],
+): CompetencyScoreSummary {
+  if (!entries || entries.length === 0) {
+    return {
+      overallScore: 0,
+      overallScoreScaled100: 0,
+      percentageScore: 0,
+      dimensionCount: 0,
+    };
+  }
+
+  let totalWeight = 0;
+  let weightedSum = 0;
+
+  for (const item of entries) {
+    const clampedScore = Math.min(5, Math.max(1, Number(item.score) || 1));
+    const weight = item.weight && item.weight > 0 ? item.weight : 1;
+    weightedSum += clampedScore * weight;
+    totalWeight += weight;
+  }
+
+  const rawAverage = totalWeight > 0 ? weightedSum / totalWeight : 0;
+  const overallScore = Number(rawAverage.toFixed(2));
+  const overallScoreScaled100 = Math.round(rawAverage * 100);
+  const percentageScore = Math.round((rawAverage / 5) * 100);
+
+  return {
+    overallScore,
+    overallScoreScaled100,
+    percentageScore,
+    dimensionCount: entries.length,
+  };
+}
+
+/**
+ * Detecta si dos intervalos temporales [startA, endA) y [startB, endB) se traslapan.
+ */
+export function hasMeetingOverlap(
+  startA: Date,
+  durationAMinutes: number,
+  startB: Date,
+  durationBMinutes: number,
+): boolean {
+  const a0 = startA.getTime();
+  const a1 = a0 + Math.max(15, durationAMinutes) * 60_000;
+  const b0 = startB.getTime();
+  const b1 = b0 + Math.max(15, durationBMinutes) * 60_000;
+  return a0 < b1 && b0 < a1;
+}

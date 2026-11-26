@@ -24,6 +24,7 @@ import { CandidatePortalService } from './candidate-portal.service';
 import {
   CreateCandidateMeetingDto,
   CreateCandidateProcessDto,
+  CreateCompetencyEvaluationDto,
   UpdateCandidateMeetingDto,
   UpdateCandidateStageDto,
 } from './dto/candidate-portal.dto';
@@ -95,6 +96,20 @@ export class CandidatePortalController {
     });
   }
 
+  @Get('interviews/agenda')
+  @ApiBearerAuth()
+  @Roles('TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN')
+  @ApiOperation({
+    summary:
+      'Obtener agenda global de entrevistas y resumen de evaluación de competencias (TH y Líderes)',
+  })
+  getInterviewsAgenda(
+    @CurrentUser() user: AuthenticatedUserProfile,
+    @Headers('origin') origin?: string,
+  ) {
+    return this.candidatePortalService.getInterviewsAgenda(user, origin);
+  }
+
   @Post('processes/:id/meetings')
   @ApiBearerAuth()
   @Roles('TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN')
@@ -103,20 +118,61 @@ export class CandidatePortalController {
     @Param('id') id: string,
     @Body() dto: CreateCandidateMeetingDto,
     @CurrentUser() user: AuthenticatedUserProfile,
+    @Headers('origin') origin?: string,
   ) {
-    return this.candidatePortalService.addMeeting(id, dto, user.id);
+    return this.candidatePortalService.addMeeting(id, dto, user.id, origin);
   }
 
   @Patch('meetings/:meetingId')
   @ApiBearerAuth()
   @Roles('TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN')
-  @ApiOperation({ summary: 'Actualizar estado o fecha de una reunión del candidato' })
+  @ApiOperation({ summary: 'Actualizar estado, enlace, duración o fecha de una reunión del candidato' })
   updateMeeting(
     @Param('meetingId') meetingId: string,
     @Body() dto: UpdateCandidateMeetingDto,
     @CurrentUser() user: AuthenticatedUserProfile,
+    @Headers('origin') origin?: string,
   ) {
-    return this.candidatePortalService.updateMeeting(meetingId, dto, user.id);
+    return this.candidatePortalService.updateMeeting(meetingId, dto, user.id, origin);
+  }
+
+  @Get('meetings/:meetingId/ics')
+  @ApiBearerAuth()
+  @Roles('TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Descargar evento de entrevista en formato calendario (.ics)' })
+  async downloadInternalMeetingIcs(
+    @Param('meetingId') meetingId: string,
+    @Res() res: Response,
+  ) {
+    const ics = await this.candidatePortalService.getMeetingIcs(meetingId);
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', buildContentDispositionHeader('attachment', ics.fileName));
+    res.send(ics.content);
+  }
+
+  @Get('processes/:id/evaluations')
+  @ApiBearerAuth()
+  @Roles('TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Listar evaluaciones de competencias de un candidato' })
+  listEvaluations(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUserProfile,
+  ) {
+    return this.candidatePortalService.listEvaluations(id, user);
+  }
+
+  @Post('processes/:id/evaluations')
+  @ApiBearerAuth()
+  @Roles('TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN')
+  @ApiOperation({
+    summary: 'Registrar evaluación de competencias (escala 1-5 ponderada) para un candidato',
+  })
+  createEvaluation(
+    @Param('id') id: string,
+    @Body() dto: CreateCompetencyEvaluationDto,
+    @CurrentUser() user: AuthenticatedUserProfile,
+  ) {
+    return this.candidatePortalService.createEvaluation(id, dto, user);
   }
 
   @Post('processes/:id/enable-pre-onboarding')
@@ -203,5 +259,19 @@ export class CandidatePortalController {
   @ApiOperation({ summary: 'Marcar notificaciones del candidato como leídas' })
   markNotificationsRead(@Param('token') token: string) {
     return this.candidatePortalService.markNotificationsRead(token);
+  }
+
+  @Get('public/:token/meetings/:meetingId/ics')
+  @Public()
+  @ApiOperation({ summary: 'Descargar evento de entrevista (.ics) desde el portal del candidato' })
+  async downloadPublicMeetingIcs(
+    @Param('token') token: string,
+    @Param('meetingId') meetingId: string,
+    @Res() res: Response,
+  ) {
+    const ics = await this.candidatePortalService.getPublicMeetingIcs(token, meetingId);
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', buildContentDispositionHeader('attachment', ics.fileName));
+    res.send(ics.content);
   }
 }

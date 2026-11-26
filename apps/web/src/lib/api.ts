@@ -6,6 +6,7 @@ import {
   ClearanceDepartment,
   ClearanceStatus,
   EmployeeStatus,
+  EvaluationRecommendation,
   ExpirationCategory,
   ExpirationSeverity,
   ExpirationStatus,
@@ -148,13 +149,98 @@ export interface CandidateMeetingRecord {
   title: string;
   meetingType: string;
   scheduledAt: string;
+  durationMinutes?: number;
   meetingUrl: string | null;
   location: string | null;
   interviewerName: string | null;
+  interviewerEmail?: string | null;
+  operationalArea?: OperationalArea | null;
   status: MeetingStatus;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CandidateEvaluationSummary {
+  count: number;
+  averageScore: number | null;
+  averagePercentage: number | null;
+  latestRecommendation: EvaluationRecommendation | null;
+  latestRecommendationLabel: string | null;
+}
+
+export interface CandidateCompetencyEvaluationRecord {
+  id: string;
+  processId: string;
+  meetingId: string | null;
+  evaluatorName: string;
+  evaluatorEmail: string;
+  evaluatorRole: string;
+  stageLabel: string;
+  operationalArea: OperationalArea | null;
+  scores: Array<{
+    key: string;
+    label: string;
+    score: number;
+    weight?: number;
+    observation?: string;
+  }>;
+  overallScoreScaled100: number;
+  overallScore: number;
+  percentageScore: number;
+  recommendation: EvaluationRecommendation;
+  recommendationLabel: string;
+  strengths: string | null;
+  improvementAreas: string | null;
+  summaryNotes: string | null;
+  meeting?: {
+    id: string;
+    title: string;
+    meetingType: string;
+    scheduledAt: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InterviewAgendaResponse {
+  kpis: {
+    totalInterviews: number;
+    scheduledTodayCount: number;
+    upcomingCount: number;
+    completedCount: number;
+    evaluationsCount: number;
+  };
+  meetings: Array<
+    CandidateMeetingRecord & {
+      process?: {
+        id: string;
+        accessToken: string;
+        candidateName: string;
+        candidateEmail: string;
+        nationalId: string | null;
+        appliedRole: string | null;
+        stage: CandidateStage;
+        cvS3Key: string | null;
+        cvFileName: string | null;
+      } | null;
+      evaluation: CandidateCompetencyEvaluationRecord | null;
+      processEvaluationSummary: CandidateEvaluationSummary;
+    }
+  >;
+  candidates: Array<{
+    id: string;
+    candidateName: string;
+    candidateEmail: string;
+    nationalId: string | null;
+    appliedRole: string | null;
+    stage: CandidateStage;
+    stageLabel: string;
+    portalUrl: string;
+    hasCv: boolean;
+    evaluationSummary: CandidateEvaluationSummary;
+    evaluations: CandidateCompetencyEvaluationRecord[];
+  }>;
 }
 
 export interface CandidateNotificationRecord {
@@ -207,6 +293,8 @@ export interface CandidateProcessRecord {
   } | null;
   meetings: CandidateMeetingRecord[];
   notifications: CandidateNotificationRecord[];
+  evaluations?: CandidateCompetencyEvaluationRecord[];
+  evaluationSummary?: CandidateEvaluationSummary;
   createdAt: string;
   updatedAt: string;
 }
@@ -586,10 +674,14 @@ export const apiClient = {
       title: string;
       meetingType?: string;
       scheduledAt: string;
+      durationMinutes?: number;
       meetingUrl?: string;
       location?: string;
       interviewerName?: string;
+      interviewerEmail?: string;
+      operationalArea?: OperationalArea;
       notes?: string;
+      allowOverlap?: boolean;
     },
   ) =>
     apiFetch<CandidateMeetingRecord>(`/candidate-portal/processes/${processId}/meetings`, {
@@ -601,15 +693,56 @@ export const apiClient = {
     payload: {
       status?: MeetingStatus;
       scheduledAt?: string;
+      durationMinutes?: number;
       meetingUrl?: string;
       location?: string;
+      interviewerEmail?: string;
+      operationalArea?: OperationalArea;
       notes?: string;
+      allowOverlap?: boolean;
     },
   ) =>
     apiFetch<CandidateMeetingRecord>(`/candidate-portal/meetings/${meetingId}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
     }),
+  getInterviewsAgenda: () =>
+    apiFetch<InterviewAgendaResponse>('/candidate-portal/interviews/agenda'),
+  listCandidateEvaluations: (processId: string) =>
+    apiFetch<{
+      processId: string;
+      candidateName: string;
+      appliedRole: string | null;
+      summary: CandidateEvaluationSummary;
+      items: CandidateCompetencyEvaluationRecord[];
+    }>(`/candidate-portal/processes/${processId}/evaluations`),
+  createCandidateEvaluation: (
+    processId: string,
+    payload: {
+      meetingId?: string;
+      stageLabel?: string;
+      operationalArea?: OperationalArea;
+      scores: Array<{
+        key: string;
+        label: string;
+        score: number;
+        weight?: number;
+        observation?: string;
+      }>;
+      recommendation: EvaluationRecommendation;
+      strengths?: string;
+      improvementAreas?: string;
+      summaryNotes?: string;
+      markMeetingCompleted?: boolean;
+    },
+  ) =>
+    apiFetch<CandidateCompetencyEvaluationRecord>(
+      `/candidate-portal/processes/${processId}/evaluations`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    ),
   enableCandidatePreOnboarding: (processId: string) =>
     apiFetch<{
       process: CandidateProcessRecord;

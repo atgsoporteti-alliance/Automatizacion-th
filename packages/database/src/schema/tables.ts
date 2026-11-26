@@ -19,6 +19,7 @@ import {
   documentTypeEnum,
   educationLevelEnum,
   employeeStatusEnum,
+  evaluationRecommendationEnum,
   expirationCategoryEnum,
   expirationStatusEnum,
   maritalStatusEnum,
@@ -292,15 +293,21 @@ export const candidateMeetings = pgTable(
     title: varchar('title', { length: 150 }).notNull(),
     meetingType: varchar('meeting_type', { length: 60 }).notNull().default('Entrevista TH'),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
+    durationMinutes: integer('duration_minutes').notNull().default(45),
     meetingUrl: text('meeting_url'),
     location: varchar('location', { length: 200 }),
     interviewerName: varchar('interviewer_name', { length: 150 }),
+    interviewerEmail: varchar('interviewer_email', { length: 150 }),
+    operationalArea: operationalAreaEnum('operational_area'),
     status: meetingStatusEnum('status').notNull().default('SCHEDULED'),
     notes: text('notes'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index('candidate_meetings_process_id_idx').on(table.processId)],
+  (table) => [
+    index('candidate_meetings_process_id_idx').on(table.processId),
+    index('candidate_meetings_scheduled_at_idx').on(table.scheduledAt),
+  ],
 );
 
 /**
@@ -436,3 +443,50 @@ export const timeRequests = pgTable(
 
 export type TimeRequest = typeof timeRequests.$inferSelect;
 export type NewTimeRequest = typeof timeRequests.$inferInsert;
+
+/**
+ * 13. candidate_competency_evaluations — Evaluación Estructurada de Competencias (Entrevistas)
+ */
+export const candidateCompetencyEvaluations = pgTable(
+  'candidate_competency_evaluations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    processId: uuid('process_id')
+      .notNull()
+      .references(() => candidateProcesses.id, { onDelete: 'cascade' }),
+    meetingId: uuid('meeting_id').references(() => candidateMeetings.id, {
+      onDelete: 'set null',
+    }),
+    evaluatorName: varchar('evaluator_name', { length: 150 }).notNull(),
+    evaluatorEmail: varchar('evaluator_email', { length: 150 }).notNull(),
+    evaluatorRole: varchar('evaluator_role', { length: 60 }).notNull(),
+    stageLabel: varchar('stage_label', { length: 80 }).notNull().default('Entrevista TH'),
+    operationalArea: operationalAreaEnum('operational_area'),
+    scores: jsonb('scores')
+      .$type<
+        Array<{
+          key: string;
+          label: string;
+          score: number;
+          weight?: number;
+          observation?: string;
+        }>
+      >()
+      .notNull(),
+    overallScoreScaled100: integer('overall_score_scaled_100').notNull().default(0),
+    recommendation: evaluationRecommendationEnum('recommendation').notNull(),
+    strengths: text('strengths'),
+    improvementAreas: text('improvement_areas'),
+    summaryNotes: text('summary_notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('competency_eval_process_idx').on(table.processId),
+    index('competency_eval_meeting_idx').on(table.meetingId),
+    index('competency_eval_rec_idx').on(table.recommendation),
+  ],
+);
+
+export type CandidateCompetencyEvaluation = typeof candidateCompetencyEvaluations.$inferSelect;
+export type NewCandidateCompetencyEvaluation = typeof candidateCompetencyEvaluations.$inferInsert;

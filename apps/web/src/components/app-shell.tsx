@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import {
+  Award,
   Building2,
   CalendarClock,
   ClipboardCheck,
@@ -52,6 +53,12 @@ const NAV_GROUPS: NavGroup[] = [
         label: 'Selección y Candidatos',
         icon: UserCheck,
         allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN'],
+      },
+      {
+        href: '/dashboard/entrevistas',
+        label: 'Entrevistas y Competencias',
+        icon: Award,
+        allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN'],
       },
       {
         href: '/dashboard/th',
@@ -130,6 +137,7 @@ const NAV_GROUPS: NavGroup[] = [
 
 const ROUTE_TITLES: Record<string, string> = {
   '/dashboard/candidatos': 'Talento Humano · Selección y Candidatos',
+  '/dashboard/entrevistas': 'Selección · Entrevistas y Competencias',
   '/dashboard/th': 'Talento Humano · Validación',
   '/dashboard/vencimientos': 'Alertas Automáticas · Vencimientos',
   '/dashboard/novedades': 'Incapacidades, Licencias, Permisos y Horas Extra',

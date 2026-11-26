@@ -352,3 +352,81 @@ export const OVERTIME_SURCHARGE_PERCENT: Record<string, number> = {
   RECARGO_NOCTURNO: 35,
   COMPENSATORIO: 0,
 };
+
+export const INTERVIEW_DURATION_OPTIONS = [15, 30, 45, 60, 90] as const;
+
+export const COMPETENCY_SCALE_LABELS: Record<number, string> = {
+  1: '1 · Insuficiente / No cumple',
+  2: '2 · Básico / En desarrollo',
+  3: '3 · Competente / Cumple',
+  4: '4 · Sobresaliente / Avanzado',
+  5: '5 · Excepcional / Referente',
+};
+
+export interface CompetencyTemplateItem {
+  key: string;
+  label: string;
+  category: 'TRANSVERSAL' | 'TECNICA';
+  weight: number;
+  description: string;
+}
+
+export const DEFAULT_COMPETENCY_RUBRIC: CompetencyTemplateItem[] = [
+  {
+    key: 'COMUNICACION',
+    label: 'Comunicación Asertiva',
+    category: 'TRANSVERSAL',
+    weight: 20,
+    description: 'Claridad al expresar ideas, escucha activa y empatía profesional.',
+  },
+  {
+    key: 'DOMINIO_TECNICO',
+    label: 'Dominio Técnico del Rol',
+    category: 'TECNICA',
+    weight: 20,
+    description: 'Conocimiento práctico de herramientas, procesos o stack requeridos para el cargo.',
+  },
+  {
+    key: 'RESOLUCION_PROBLEMAS',
+    label: 'Resolución de Problemas',
+    category: 'TECNICA',
+    weight: 15,
+    description: 'Capacidad analítica, criterio bajo presión y planteamiento de soluciones.',
+  },
+  {
+    key: 'ORIENTACION_LOGRO',
+    label: 'Orientación a Resultados',
+    category: 'TRANSVERSAL',
+    weight: 15,
+    description: 'Compromiso con metas, SLA, calidad del trabajo y autonomía.',
+  },
+  {
+    key: 'TRABAJO_EQUIPO',
+    label: 'Trabajo Colaborativo',
+    category: 'TRANSVERSAL',
+    weight: 15,
+    description: 'Disposición para coordinar con otras áreas y recibir retroalimentación.',
+  },
+  {
+    key: 'ADAPTABILIDAD',
+    label: 'Adaptabilidad y Cultura Alliance',
+    category: 'TRANSVERSAL',
+    weight: 15,
+    description: 'Alineación con valores corporativos, ética y apertura al aprendizaje.',
+  },
+];
+
+export const EVALUATION_RECOMMENDATIONS = [
+  'STRONGLY_RECOMMEND',
+  'RECOMMEND',
+  'RESERVATIONS',
+  'NOT_RECOMMENDED',
+] as const;
+export type EvaluationRecommendation = (typeof EVALUATION_RECOMMENDATIONS)[number];
+
+export const EVALUATION_RECOMMENDATION_LABELS: Record<EvaluationRecommendation, string> = {
+  STRONGLY_RECOMMEND: 'Altamente Recomendado',
+  RECOMMEND: 'Recomendado (Avanza)',
+  RESERVATIONS: 'Con Reservas (Validar)',
+  NOT_RECOMMENDED: 'No Recomendado',
+};

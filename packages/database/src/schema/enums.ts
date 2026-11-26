@@ -159,3 +159,10 @@ export const timeRequestStatusEnum = pgEnum('time_request_status', [
   'REJECTED',
   'CANCELLED',
 ]);
+
+export const evaluationRecommendationEnum = pgEnum('evaluation_recommendation', [
+  'STRONGLY_RECOMMEND',
+  'RECOMMEND',
+  'RESERVATIONS',
+  'NOT_RECOMMENDED',
+]);

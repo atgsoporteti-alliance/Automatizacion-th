@@ -534,6 +534,42 @@ export class MailService {
     });
   }
 
+  async sendInterviewerScheduledEmail(params: {
+    to: string;
+    interviewerName?: string | null;
+    candidateName: string;
+    appliedRole?: string | null;
+    title: string;
+    meetingType: string;
+    scheduledAtLabel: string;
+    durationMinutes: number;
+    meetingUrl?: string | null;
+    location?: string | null;
+    dashboardUrl: string;
+  }) {
+    const greeting = params.interviewerName
+      ? `Hola ${escapeHtml(params.interviewerName)},`
+      : 'Hola,';
+
+    return this.sendEmail({
+      to: params.to,
+      subject: `Entrevista asignada: ${params.candidateName} · ${params.title}`,
+      text: `Tienes una entrevista asignada con ${params.candidateName}${params.appliedRole ? ` (${params.appliedRole})` : ''} el ${params.scheduledAtLabel} (${params.durationMinutes} min).${params.meetingUrl ? ` Enlace: ${params.meetingUrl}` : ''} Panel de evaluaciones: ${params.dashboardUrl}`,
+      html: this.renderLayout({
+        eyebrow: 'Agenda de Entrevistas y Competencias',
+        title: `Entrevista programada: ${params.title}`,
+        bodyHtml: `<p style="margin:0 0 10px 0;">${greeting}</p>
+          <p style="margin:0 0 6px 0;"><strong>Candidato:</strong> ${escapeHtml(params.candidateName)}${params.appliedRole ? ` (${escapeHtml(params.appliedRole)})` : ''}</p>
+          <p style="margin:0 0 6px 0;"><strong>Tipo:</strong> ${escapeHtml(params.meetingType)}</p>
+          <p style="margin:0 0 6px 0;"><strong>Fecha y duración:</strong> ${escapeHtml(params.scheduledAtLabel)} (${params.durationMinutes} min)</p>
+          ${params.location ? `<p style="margin:0 0 6px 0;"><strong>Modalidad:</strong> ${escapeHtml(params.location)}</p>` : ''}
+          ${params.meetingUrl ? `<p style="margin:0 0 6px 0;"><strong>Enlace:</strong> <a href="${escapeHtml(params.meetingUrl)}">${escapeHtml(params.meetingUrl)}</a></p>` : ''}`,
+        ctaLabel: params.meetingUrl ? 'Abrir videollamada' : 'Abrir Agenda y Evaluación',
+        ctaUrl: params.meetingUrl ?? params.dashboardUrl,
+      }),
+    });
+  }
+
   async sendMagicLinkInviteEmail(params: {
     to: string;
     candidateName?: string;
