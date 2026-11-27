@@ -16,6 +16,8 @@ import {
   candidateStageEnum,
   clearanceDepartmentEnum,
   clearanceStatusEnum,
+  contractStatusEnum,
+  contractTypeEnum,
   documentTypeEnum,
   educationLevelEnum,
   employeeStatusEnum,
@@ -492,3 +494,53 @@ export const candidateCompetencyEvaluations = pgTable(
 
 export type CandidateCompetencyEvaluation = typeof candidateCompetencyEvaluations.$inferSelect;
 export type NewCandidateCompetencyEvaluation = typeof candidateCompetencyEvaluations.$inferInsert;
+
+/**
+ * 14. employee_contracts — Gestión Centralizada de Contratos Laborales y Soportes PDF
+ */
+export const employeeContracts = pgTable(
+  'employee_contracts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    contractCode: varchar('contract_code', { length: 80 }),
+    title: varchar('title', { length: 180 }).notNull(),
+    contractType: contractTypeEnum('contract_type').notNull().default('INDEFINITE'),
+    status: contractStatusEnum('status').notNull().default('ACTIVE'),
+    operationalArea: operationalAreaEnum('operational_area'),
+    jobTitle: varchar('job_title', { length: 120 }),
+    costCenter: varchar('cost_center', { length: 80 }),
+    workModality: varchar('work_modality', { length: 60 }),
+    salaryCop: integer('salary_cop'),
+    startsAt: date('starts_at').notNull(),
+    endsAt: date('ends_at'),
+    signedAt: date('signed_at'),
+    alertDaysBefore: integer('alert_days_before').notNull().default(30),
+    fileName: varchar('file_name', { length: 255 }),
+    mimeType: varchar('mime_type', { length: 120 }),
+    fileSize: integer('file_size').notNull().default(0),
+    s3Key: varchar('s3_key', { length: 500 }),
+    s3Url: text('s3_url'),
+    linkedExpirationId: uuid('linked_expiration_id').references(() => expirationRecords.id, {
+      onDelete: 'set null',
+    }),
+    notes: text('notes'),
+    createdBy: varchar('created_by', { length: 150 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('employee_contracts_employee_idx').on(table.employeeId),
+    index('employee_contracts_type_idx').on(table.contractType),
+    index('employee_contracts_status_idx').on(table.status),
+    index('employee_contracts_starts_at_idx').on(table.startsAt),
+    index('employee_contracts_ends_at_idx').on(table.endsAt),
+    index('employee_contracts_area_idx').on(table.operationalArea),
+    index('employee_contracts_code_idx').on(table.contractCode),
+  ],
+);
+
+export type EmployeeContract = typeof employeeContracts.$inferSelect;
+export type NewEmployeeContract = typeof employeeContracts.$inferInsert;

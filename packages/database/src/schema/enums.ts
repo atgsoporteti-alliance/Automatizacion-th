@@ -81,6 +81,7 @@ export const documentTypeEnum = pgEnum('document_type', [
   'BANK_CERTIFICATE',
   'EPS_CERTIFICATE',
   'PENSION_CERTIFICATE',
+  'CONTRACT',
   'DELIVERY_ACT',
   'OTHER',
 ]);
@@ -165,4 +166,21 @@ export const evaluationRecommendationEnum = pgEnum('evaluation_recommendation', 
   'RECOMMEND',
   'RESERVATIONS',
   'NOT_RECOMMENDED',
+]);
+
+export const contractTypeEnum = pgEnum('contract_type', [
+  'INDEFINITE',
+  'FIXED_TERM',
+  'WORK_OR_LABOR',
+  'SERVICE_AGREEMENT',
+  'APPRENTICESHIP',
+]);
+
+export const contractStatusEnum = pgEnum('contract_status', [
+  'ACTIVE',
+  'EXPIRING_SOON',
+  'EXPIRED',
+  'RENEWED',
+  'TERMINATED',
+  'DRAFT',
 ]);

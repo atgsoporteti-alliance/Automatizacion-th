@@ -248,7 +248,9 @@ export class EmployeesService {
       throw new NotFoundException('StorageService no disponible.');
     }
 
-    const { buffer, contentType } = await this.storageService.getObjectBuffer(doc.s3Key);
+    const { buffer, contentType } = await this.storageService.getObjectBuffer(doc.s3Key, {
+      sourceUrl: doc.s3Url,
+    });
     return {
       buffer,
       mimeType: doc.mimeType || contentType,
@@ -279,12 +281,10 @@ export class EmployeesService {
       throw new NotFoundException('StorageService no disponible.');
     }
 
-    // Si signatureImageUrl guarda la s3Key (ej: signatures/<cedula>/...)
-    const s3Key = sig.signatureImageUrl.startsWith('http')
-      ? sig.signatureImageUrl.split('/alliance/')[1] ?? sig.signatureImageUrl
-      : sig.signatureImageUrl;
-
-    const { buffer, contentType } = await this.storageService.getObjectBuffer(s3Key);
+    const { bucket, key } = this.storageService.resolveBucketAndKey(sig.signatureImageUrl);
+    const { buffer, contentType } = await this.storageService.getObjectBuffer(key, {
+      sourceUrl: bucket ? sig.signatureImageUrl : undefined,
+    });
     return {
       buffer,
       mimeType: contentType || 'image/png',

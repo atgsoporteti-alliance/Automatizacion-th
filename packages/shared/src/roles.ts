@@ -65,6 +65,8 @@ export type Permission =
   | 'magic_link:generate'
   | 'employees:read_full'
   | 'employees:read_technical'
+  | 'contracts:read'
+  | 'contracts:manage'
   | 'workflow:approve_th'
   | 'workflow:approve_dsi'
   | 'workflow:cancel_no_show'
@@ -91,6 +93,8 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'interviews:manage',
     'magic_link:generate',
     'employees:read_full',
+    'contracts:read',
+    'contracts:manage',
     'workflow:approve_th',
     'helpdesk:manage',
     'time_requests:read',
@@ -104,6 +108,8 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'interviews:manage',
     'magic_link:generate',
     'employees:read_full',
+    'contracts:read',
+    'contracts:manage',
     'workflow:approve_th',
     'workflow:cancel_no_show',
     'helpdesk:manage',
@@ -145,6 +151,8 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'magic_link:generate',
     'employees:read_full',
     'employees:read_technical',
+    'contracts:read',
+    'contracts:manage',
     'workflow:approve_th',
     'workflow:approve_dsi',
     'workflow:cancel_no_show',

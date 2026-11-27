@@ -615,7 +615,9 @@ export class TimeRequestsService {
 
     this.assertLeaderScope(user, existing.operationalArea ?? null);
 
-    const { buffer, contentType } = await this.storageService.getObjectBuffer(existing.supportS3Key);
+    const { buffer, contentType } = await this.storageService.getObjectBuffer(existing.supportS3Key, {
+      sourceUrl: existing.supportS3Url,
+    });
     return {
       buffer,
       fileName: decodeUploadedFileName(existing.supportFileName ?? 'soporte-novedad.pdf'),

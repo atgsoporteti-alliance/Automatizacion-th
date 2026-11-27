@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { Download, FileText, X } from 'lucide-react';
+import { Download, ExternalLink, FileText, X } from 'lucide-react';
 import { Button } from './ui/primitives';
 
 interface DocumentPreviewModalProps {
@@ -52,6 +52,17 @@ export function DocumentPreviewModal({
             <span className="truncate text-sm font-medium">{fileName}</span>
           </div>
           <div className="flex items-center gap-1.5">
+            {allowDownload && objectUrl && (isPdf || isImage) && (
+              <a
+                href={objectUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Abrir
+              </a>
+            )}
             {allowDownload && objectUrl ? (
               <a
                 href={objectUrl}
@@ -78,8 +89,8 @@ export function DocumentPreviewModal({
               Cargando archivo desde Supabase Storage (alliance)...
             </div>
           ) : error ? (
-            <div className="flex h-[65vh] items-center justify-center text-xs text-rose-600 dark:text-rose-400">
-              {error}
+            <div className="flex h-[65vh] flex-col items-center justify-center gap-2 px-6 text-center text-xs text-rose-600 dark:text-rose-400">
+              <p className="max-w-lg leading-relaxed">{error}</p>
             </div>
           ) : !objectUrl ? (
             <div className="flex h-[65vh] items-center justify-center text-xs text-zinc-500">

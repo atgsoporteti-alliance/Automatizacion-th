@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   CreateBucketCommand,
@@ -189,23 +195,132 @@ export class StorageService {
     };
   }
 
-  async getObjectBuffer(s3Key: string): Promise<{ buffer: Buffer; contentType: string }> {
-    const response = await this.s3Client.send(
-      new GetObjectCommand({
-        Bucket: this.bucket,
-        Key: s3Key,
-      }),
-    );
-
-    if (!response.Body) {
-      throw new Error(`El objeto ${s3Key} no contiene datos`);
+  /**
+   * Extrae bucket y clave S3 a partir de una URL pública/autenticada de Supabase Storage o MinIO.
+   */
+  public resolveBucketAndKey(
+    s3KeyOrUrl: string,
+  ): { bucket?: string; key: string } {
+    const clean = s3KeyOrUrl.trim();
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      return { key: clean };
     }
 
-    const bytes = await response.Body.transformToByteArray();
-    return {
-      buffer: Buffer.from(bytes),
-      contentType: response.ContentType ?? 'application/octet-stream',
-    };
+    try {
+      const parsed = new URL(clean);
+      const markers = ['/storage/v1/object/public/', '/storage/v1/object/authenticated/', '/storage/v1/s3/'];
+      for (const marker of markers) {
+        const idx = parsed.pathname.indexOf(marker);
+        if (idx !== -1) {
+          const rest = parsed.pathname.slice(idx + marker.length).replace(/^\/+/, '');
+          const slashIdx = rest.indexOf('/');
+          if (slashIdx > 0) {
+            return {
+              bucket: decodeURIComponent(rest.slice(0, slashIdx)),
+              key: decodeURIComponent(rest.slice(slashIdx + 1)),
+            };
+          }
+        }
+      }
+
+      const pathParts = parsed.pathname.replace(/^\/+/, '').split('/');
+      if (pathParts.length >= 2) {
+        return {
+          bucket: decodeURIComponent(pathParts[0]),
+          key: decodeURIComponent(pathParts.slice(1).join('/')),
+        };
+      }
+    } catch {
+      // conservar texto original si no es URL válida
+    }
+
+    return { key: clean };
+  }
+
+  private getBucketCandidates(explicitBucket?: string): string[] {
+    const legacyRaw = this.config.get<string>('S3_LEGACY_BUCKETS', 'alliance-hcm-docs,alliance');
+    const legacyBuckets = legacyRaw
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    return Array.from(
+      new Set([explicitBucket, this.bucket, ...legacyBuckets].filter((b): b is string => Boolean(b))),
+    );
+  }
+
+  async getObjectBuffer(
+    s3Key: string,
+    options?: { sourceUrl?: string | null },
+  ): Promise<{ buffer: Buffer; contentType: string }> {
+    const urlRef = options?.sourceUrl ? this.resolveBucketAndKey(options.sourceUrl) : null;
+    const directRef = this.resolveBucketAndKey(s3Key);
+    const resolvedKey = directRef.key;
+    const bucketCandidates = this.getBucketCandidates(urlRef?.bucket ?? directRef.bucket);
+
+    let lastNotFoundError = false;
+    let lastInfraError: unknown = null;
+
+    for (const bucketName of bucketCandidates) {
+      try {
+        const response = await this.s3Client.send(
+          new GetObjectCommand({
+            Bucket: bucketName,
+            Key: resolvedKey,
+          }),
+        );
+
+        if (!response.Body) {
+          lastNotFoundError = true;
+          continue;
+        }
+
+        const bytes = await response.Body.transformToByteArray();
+        return {
+          buffer: Buffer.from(bytes),
+          contentType: response.ContentType ?? 'application/octet-stream',
+        };
+      } catch (err) {
+        const errRecord = err as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number } };
+        const statusCode = errRecord?.$metadata?.httpStatusCode;
+        const code = errRecord?.Code ?? errRecord?.name ?? '';
+        const isNotFound =
+          statusCode === 404 || code === 'NoSuchKey' || code === 'NotFound' || code === 'NoSuchBucket';
+
+        if (isNotFound) {
+          lastNotFoundError = true;
+          continue;
+        }
+
+        lastInfraError = err;
+        break;
+      }
+    }
+
+    if (lastInfraError) {
+      const msg =
+        lastInfraError instanceof Error ? lastInfraError.message : String(lastInfraError);
+      this.logger.error(
+        `Error conectando con Supabase/S3 Storage (${this.endpoint}, bucket=${this.bucket}, key=${resolvedKey}): ${msg}`,
+      );
+      const localHint = this.endpoint.includes('localhost')
+        ? ' El endpoint S3 configurado apunta a localhost y no a Supabase Storage.'
+        : '';
+      throw new ServiceUnavailableException(
+        `No se pudo leer el archivo desde Storage (${this.bucket}).${localHint} Verifica las variables S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY y S3_SECRET_KEY.`,
+      );
+    }
+
+    if (lastNotFoundError) {
+      this.logger.warn(
+        `Archivo no encontrado en Storage (buckets probados: ${bucketCandidates.join(', ')}): ${resolvedKey}`,
+      );
+      throw new NotFoundException(
+        `El archivo no se encontró en Supabase Storage (buckets consultados: ${bucketCandidates.join(', ')}). Si corresponde a un registro semilla de demostración, adjunta el archivo nuevamente para almacenarlo en la nube.`,
+      );
+    }
+
+    throw new NotFoundException(`El objeto ${resolvedKey} no contiene datos.`);
   }
 
   async createPresignedDownloadUrl(

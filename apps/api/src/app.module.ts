@@ -21,6 +21,7 @@ import { OffboardingModule } from './modules/offboarding/offboarding.module';
 import { CandidatePortalModule } from './modules/candidate-portal/candidate-portal.module';
 import { ExpirationsModule } from './modules/expirations/expirations.module';
 import { TimeRequestsModule } from './modules/time-requests/time-requests.module';
+import { ContractsModule } from './modules/contracts/contracts.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { TimeRequestsModule } from './modules/time-requests/time-requests.module
     CandidatePortalModule,
     ExpirationsModule,
     TimeRequestsModule,
+    ContractsModule,
   ],
   providers: [
     {

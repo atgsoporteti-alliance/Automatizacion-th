@@ -75,6 +75,7 @@ export const DOCUMENT_TYPES = [
   'BANK_CERTIFICATE',
   'EPS_CERTIFICATE',
   'PENSION_CERTIFICATE',
+  'CONTRACT',
   'DELIVERY_ACT',
   'OTHER',
 ] as const;
@@ -449,3 +450,41 @@ export const EVALUATION_RECOMMENDATION_LABELS: Record<EvaluationRecommendation, 
   RESERVATIONS: 'Con Reservas (Validar)',
   NOT_RECOMMENDED: 'No Recomendado',
 };
+
+export const CONTRACT_TYPES = [
+  'INDEFINITE',
+  'FIXED_TERM',
+  'WORK_OR_LABOR',
+  'SERVICE_AGREEMENT',
+  'APPRENTICESHIP',
+] as const;
+export type ContractType = (typeof CONTRACT_TYPES)[number];
+
+export const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
+  INDEFINITE: 'Término Indefinido',
+  FIXED_TERM: 'Término Fijo',
+  WORK_OR_LABOR: 'Obra o Labor',
+  SERVICE_AGREEMENT: 'Prestación de Servicios',
+  APPRENTICESHIP: 'Aprendizaje (SENA)',
+};
+
+export const CONTRACT_STATUSES = [
+  'ACTIVE',
+  'EXPIRING_SOON',
+  'EXPIRED',
+  'RENEWED',
+  'TERMINATED',
+  'DRAFT',
+] as const;
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
+
+export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
+  ACTIVE: 'Vigente',
+  EXPIRING_SOON: 'Próximo a vencer',
+  EXPIRED: 'Vencido',
+  RENEWED: 'Renovado / Prorrogado',
+  TERMINATED: 'Terminado',
+  DRAFT: 'Borrador / Por firmar',
+};
+
+export const CONTRACT_MODALITY_OPTIONS = ['Presencial', 'Híbrido', 'Remoto'] as const;

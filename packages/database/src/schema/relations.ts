@@ -6,6 +6,7 @@ import {
   candidateProcesses,
   clearanceChecklists,
   dataConsentSignatures,
+  employeeContracts,
   employeeDocuments,
   employees,
   expirationRecords,
@@ -17,6 +18,7 @@ export const employeesRelations = relations(employees, ({ many }) => ({
   workflows: many(onboardingOffboardingWorkflows),
   consentSignatures: many(dataConsentSignatures),
   documents: many(employeeDocuments),
+  contracts: many(employeeContracts),
   candidateProcesses: many(candidateProcesses),
   expirations: many(expirationRecords),
   timeRequests: many(timeRequests),
@@ -112,3 +114,14 @@ export const candidateCompetencyEvaluationsRelations = relations(
     }),
   }),
 );
+
+export const employeeContractsRelations = relations(employeeContracts, ({ one }) => ({
+  employee: one(employees, {
+    fields: [employeeContracts.employeeId],
+    references: [employees.id],
+  }),
+  linkedExpiration: one(expirationRecords, {
+    fields: [employeeContracts.linkedExpirationId],
+    references: [expirationRecords.id],
+  }),
+}));

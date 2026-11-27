@@ -1174,13 +1174,16 @@ export class CandidatePortalService {
 
   private async streamStoredCv(proc: {
     cvS3Key: string | null;
+    cvS3Url?: string | null;
     cvFileName: string | null;
     cvMimeType: string | null;
   }) {
     if (!proc.cvS3Key) {
       throw new NotFoundException('Hoja de vida no encontrada para este candidato.');
     }
-    const { buffer, contentType } = await this.storageService.getObjectBuffer(proc.cvS3Key);
+    const { buffer, contentType } = await this.storageService.getObjectBuffer(proc.cvS3Key, {
+      sourceUrl: proc.cvS3Url,
+    });
     return {
       buffer,
       fileName: decodeUploadedFileName(proc.cvFileName ?? 'hoja-de-vida.pdf'),

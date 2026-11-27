@@ -5,6 +5,8 @@ import {
   CandidateVisibilityStatus,
   ClearanceDepartment,
   ClearanceStatus,
+  ContractStatus,
+  ContractType,
   EmployeeStatus,
   EvaluationRecommendation,
   ExpirationCategory,
@@ -582,7 +584,19 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      throw new Error(`No se pudo obtener el archivo (${response.status})`);
+      const body = await response.text();
+      let message = `No se pudo obtener el archivo (${response.status})`;
+      try {
+        const parsed = JSON.parse(body) as { message?: string | string[] };
+        if (Array.isArray(parsed.message)) {
+          message = parsed.message.join(', ');
+        } else if (parsed.message) {
+          message = parsed.message;
+        }
+      } catch {
+        // conservar mensaje por defecto si no es JSON
+      }
+      throw new Error(message);
     }
 
     const blob = await response.blob();
@@ -1032,7 +1046,203 @@ export const apiClient = {
 
     return response.json();
   },
+  getContracts: (filters?: {
+    search?: string;
+    contractType?: ContractType;
+    status?: ContractStatus;
+    operationalArea?: OperationalArea;
+    dateField?: 'startsAt' | 'endsAt' | 'signedAt' | 'any';
+    dateFrom?: string;
+    dateTo?: string;
+    hasDocument?: boolean;
+    sortBy?: 'startsAt_desc' | 'startsAt_asc' | 'endsAt_asc' | 'endsAt_desc' | 'name_asc' | 'updated_desc';
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.search?.trim()) params.set('search', filters.search.trim());
+    if (filters?.contractType) params.set('contractType', filters.contractType);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.operationalArea) params.set('operationalArea', filters.operationalArea);
+    if (filters?.dateField) params.set('dateField', filters.dateField);
+    if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.set('dateTo', filters.dateTo);
+    if (filters?.hasDocument !== undefined) params.set('hasDocument', String(filters.hasDocument));
+    if (filters?.sortBy) params.set('sortBy', filters.sortBy);
+    const qs = params.toString();
+    return apiFetch<ContractListResponse>(`/contracts${qs ? `?${qs}` : ''}`);
+  },
+  createContract: (payload: {
+    employeeId: string;
+    contractCode?: string;
+    title: string;
+    contractType: ContractType;
+    status?: ContractStatus;
+    operationalArea?: OperationalArea;
+    jobTitle?: string;
+    costCenter?: string;
+    workModality?: string;
+    salaryCop?: number;
+    startsAt: string;
+    endsAt?: string;
+    signedAt?: string;
+    alertDaysBefore?: number;
+    syncExpirationAlert?: boolean;
+    notes?: string;
+  }) =>
+    apiFetch<ContractItem>('/contracts', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateContract: (
+    id: string,
+    payload: {
+      contractCode?: string;
+      title?: string;
+      contractType?: ContractType;
+      status?: ContractStatus;
+      operationalArea?: OperationalArea;
+      jobTitle?: string;
+      costCenter?: string;
+      workModality?: string;
+      salaryCop?: number | null;
+      startsAt?: string;
+      endsAt?: string | null;
+      signedAt?: string | null;
+      alertDaysBefore?: number;
+      notes?: string;
+    },
+  ) =>
+    apiFetch<ContractItem>(`/contracts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  renewContract: (
+    id: string,
+    payload: {
+      newEndsAt?: string;
+      newContractType?: ContractType;
+      contractCode?: string;
+      salaryCop?: number;
+      notes?: string;
+    },
+  ) =>
+    apiFetch<ContractItem>(`/contracts/${id}/renew`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  terminateContract: (id: string, payload: { terminationDate?: string; notes?: string }) =>
+    apiFetch<ContractItem>(`/contracts/${id}/terminate`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  uploadContractDocument: async (id: string, file: File): Promise<ContractItem> => {
+    const authHeaders = await getAuthHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE}/contracts/${id}/document`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let msg = `Error subiendo PDF del contrato (${response.status})`;
+      try {
+        const parsed = (await response.json()) as { message?: string | string[] };
+        if (Array.isArray(parsed.message)) msg = parsed.message.join(', ');
+        else if (parsed.message) msg = parsed.message;
+      } catch {
+        // conservar mensaje por defecto
+      }
+      throw new Error(msg);
+    }
+
+    return response.json();
+  },
 };
+
+export interface ContractItem {
+  id: string;
+  employeeId: string;
+  contractCode: string | null;
+  title: string;
+  contractType: ContractType;
+  contractTypeLabel: string;
+  status: ContractStatus;
+  effectiveStatus: ContractStatus;
+  effectiveStatusLabel: string;
+  operationalArea: OperationalArea | null;
+  jobTitle: string | null;
+  costCenter: string | null;
+  workModality: string | null;
+  salaryCop: number | null;
+  startsAt: string;
+  endsAt: string | null;
+  signedAt: string | null;
+  alertDaysBefore: number;
+  fileName: string | null;
+  mimeType: string | null;
+  fileSize: number;
+  s3Key: string | null;
+  s3Url: string | null;
+  hasDocument: boolean;
+  linkedExpirationId: string | null;
+  notes: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  employee?: {
+    id: string;
+    fullName: string;
+    nationalId: string;
+    personalEmail: string;
+    corporateEmail: string | null;
+    operationalArea: OperationalArea | null;
+    jobTitle: string | null;
+    costCenter: string | null;
+    hireDate: string | null;
+    terminationDate: string | null;
+    status: EmployeeStatus;
+  } | null;
+  evaluation: {
+    daysRemaining: number | null;
+    severity: ExpirationSeverity;
+    daysLabel: string;
+    severityLabel: string;
+  };
+}
+
+export interface EmployeeWithoutContractSummary {
+  id: string;
+  fullName: string;
+  nationalId: string;
+  personalEmail: string;
+  corporateEmail: string | null;
+  operationalArea: OperationalArea | null;
+  jobTitle: string | null;
+  costCenter: string | null;
+  hireDate: string | null;
+  terminationDate: string | null;
+  status: EmployeeStatus;
+}
+
+export interface ContractListResponse {
+  kpis: {
+    totalContracts: number;
+    activeCount: number;
+    expiringSoonCount: number;
+    expiredCount: number;
+    terminatedCount: number;
+    indefiniteCount: number;
+    fixedTermCount: number;
+    withDocumentCount: number;
+    employeesWithoutContractCount: number;
+    legacyExpirationContractsCount: number;
+  };
+  items: ContractItem[];
+  employeesWithoutContract: EmployeeWithoutContractSummary[];
+  legacyExpirationContracts: ExpirationRecordItem[];
+}
 
 export interface TimeRequestItem {
   id: string;

@@ -72,27 +72,33 @@ interface DemoCvState {
   objectUrl: string | null;
 }
 
-const SAMPLE_PDF_BYTES = `%PDF-1.4
-1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
-2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
-3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
-4 0 obj << /Length 138 >> stream
-BT /F1 16 Tf 50 760 Td (Hoja de Vida Demo - Camila Andrea Suarez) Tj
-0 -26 Td /F1 11 Tf (Cargo: Analista de Operaciones Alliance | Documento de prueba UAT) Tj ET
-endstream endobj
-5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
-xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000241 00000 n 
-0000000430 00000 n 
-trailer << /Size 6 /Root 1 0 R >>
-startxref
-500
-%%EOF`;
+function buildValidSamplePdfString(): string {
+  const streamContent =
+    'BT /F1 16 Tf 50 760 Td (Hoja de Vida Demo - Camila Andrea Suarez) Tj ' +
+    '0 -26 Td /F1 11 Tf (Cargo: Analista de Operaciones Alliance | Documento de prueba UAT) Tj ET';
+  const objects = [
+    '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n',
+    '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n',
+    '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n',
+    `4 0 obj << /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj\n`,
+    '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n',
+  ];
+
+  let body = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  for (const obj of objects) {
+    offsets.push(body.length);
+    body += obj;
+  }
+  const xrefOffset = body.length;
+  const xrefRows = ['0000000000 65535 f \n', ...offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`)];
+  return (
+    body +
+    `xref\n0 ${objects.length + 1}\n` +
+    xrefRows.join('') +
+    `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+  );
+}
 
 function buildDemoPortalResponse(params: {
   scenario: DemoScenario;
@@ -303,30 +309,112 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
     message: string;
     createdAt: string;
   } | null>(null);
-  const [demoCv, setDemoCv] = useState<DemoCvState>({
+  const [demoCv, setDemoCv] = useState<Omit<DemoCvState, 'objectUrl'> & { customObjectUrl: string | null }>({
     fileName: 'Hoja_de_Vida_Camila_Suarez.pdf',
     mimeType: 'application/pdf',
     fileSize: 184320,
     uploadedAt: '2026-11-16T15:00:00.000Z',
+    customObjectUrl: null,
+  });
+  const [demoDefaultBlobUrl, setDemoDefaultBlobUrl] = useState<string | null>(null);
+  const [liveCvPreview, setLiveCvPreview] = useState<{
+    objectUrl: string | null;
+    loading: boolean;
+    error: string | null;
+  }>({
     objectUrl: null,
+    loading: false,
+    error: null,
   });
 
   useEffect(() => {
     if (!isDemoMode) return;
     setDemoNowMs(Date.now());
-    const blob = new Blob([SAMPLE_PDF_BYTES], { type: 'application/pdf' });
+    const blob = new Blob([buildValidSamplePdfString()], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
-    setDemoCv((prev) => (prev.objectUrl ? prev : { ...prev, objectUrl: url }));
+    setDemoDefaultBlobUrl(url);
     return () => {
       URL.revokeObjectURL(url);
     };
   }, [isDemoMode]);
+
+  useEffect(() => {
+    return () => {
+      if (demoCv.customObjectUrl) {
+        URL.revokeObjectURL(demoCv.customObjectUrl);
+      }
+    };
+  }, [demoCv.customObjectUrl]);
 
   const { data: liveData, isLoading, error, refetch } = useQuery({
     queryKey: ['candidate-portal', token],
     queryFn: () => apiClient.getPublicCandidatePortal(token),
     enabled: !isDemoMode,
   });
+
+  const liveCvVersionKey =
+    !isDemoMode && liveData && !liveData.expired && liveData.process?.cv
+      ? `${liveData.process.cv.fileName ?? ''}:${liveData.process.cv.uploadedAt ?? ''}:${liveData.process.cv.fileSize}`
+      : null;
+
+  useEffect(() => {
+    if (isDemoMode || !liveCvVersionKey) {
+      setLiveCvPreview((prev) => {
+        if (prev.objectUrl) URL.revokeObjectURL(prev.objectUrl);
+        return { objectUrl: null, loading: false, error: null };
+      });
+      return;
+    }
+
+    let cancelled = false;
+    let activeBlobUrl: string | null = null;
+    setLiveCvPreview((prev) => {
+      if (prev.objectUrl) URL.revokeObjectURL(prev.objectUrl);
+      return { objectUrl: null, loading: true, error: null };
+    });
+
+    void (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/candidate-portal/public/${encodeURIComponent(token)}/cv/content`,
+          { cache: 'no-store' },
+        );
+        if (!res.ok) {
+          const text = await res.text();
+          let message = `No se pudo cargar el archivo (${res.status}).`;
+          try {
+            const parsed = JSON.parse(text) as { message?: string | string[] };
+            if (Array.isArray(parsed.message)) message = parsed.message.join(', ');
+            else if (parsed.message) message = parsed.message;
+          } catch {
+            // conservar mensaje por defecto
+          }
+          throw new Error(message);
+        }
+        const blob = await res.blob();
+        if (cancelled) return;
+        activeBlobUrl = URL.createObjectURL(blob);
+        setLiveCvPreview({ objectUrl: activeBlobUrl, loading: false, error: null });
+      } catch (err) {
+        if (cancelled) return;
+        setLiveCvPreview({
+          objectUrl: null,
+          loading: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : 'No se pudo obtener la vista previa del documento.',
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (activeBlobUrl) {
+        URL.revokeObjectURL(activeBlobUrl);
+      }
+    };
+  }, [isDemoMode, liveCvVersionKey, token]);
 
   const cvMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -343,7 +431,7 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
           mimeType: file.type || 'application/pdf',
           fileSize: file.size,
           uploadedAt: nowIso,
-          objectUrl: localUrl,
+          customObjectUrl: localUrl,
         });
         setDemoExtraNotif({
           id: `demo-cv-${Date.now()}`,
@@ -410,16 +498,23 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
     },
   });
 
+  const activeDemoUrl = demoCv.customObjectUrl ?? demoDefaultBlobUrl ?? '';
   const demoData = useMemo(() => {
     if (!isDemoMode) return undefined;
     return buildDemoPortalResponse({
       scenario: demoScenario,
       nowMs: demoNowMs,
-      demoCv,
+      demoCv: {
+        fileName: demoCv.fileName,
+        mimeType: demoCv.mimeType,
+        fileSize: demoCv.fileSize,
+        uploadedAt: demoCv.uploadedAt,
+        objectUrl: activeDemoUrl || null,
+      },
       readIds: demoReadIds,
       extraNotification: demoExtraNotif,
     });
-  }, [isDemoMode, demoScenario, demoNowMs, demoCv, demoReadIds, demoExtraNotif]);
+  }, [isDemoMode, demoScenario, demoNowMs, demoCv, activeDemoUrl, demoReadIds, demoExtraNotif]);
 
   const data = isDemoMode ? demoData : liveData;
 
@@ -534,10 +629,10 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
     ? demoConsentAccepted || demoScenario === 'HIRED_15D'
     : Boolean(proc.habeasDataAcceptedAt);
   const currentIdx = STAGE_ORDER[proc.stage];
-  const cvUrl = isDemoMode
-    ? demoCv.objectUrl ?? ''
-    : `${API_BASE}/candidate-portal/public/${encodeURIComponent(token)}/cv/content`;
-  const cvDownloadUrl = isDemoMode ? cvUrl : `${cvUrl}?download=1`;
+  const cvUrl = isDemoMode ? activeDemoUrl : liveCvPreview.objectUrl ?? '';
+  const cvApiDownloadUrl = isDemoMode
+    ? cvUrl
+    : liveCvPreview.objectUrl ?? `${API_BASE}/candidate-portal/public/${encodeURIComponent(token)}/cv/content?download=1`;
   const isImageCv = Boolean(proc.cv?.mimeType?.startsWith('image/'));
   const isPdfCv =
     proc.cv?.mimeType === 'application/pdf' ||
@@ -768,15 +863,26 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
 
               {proc.cv && (
                 <div className="rounded-md border border-zinc-200/80 bg-zinc-50/60 p-3 space-y-2.5 dark:border-zinc-800/80 dark:bg-zinc-950/60">
-                  {cvUrl && (isImageCv || isPdfCv) && (
-                    <div className="overflow-hidden rounded border border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-900">
-                      {isImageCv ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cvUrl} alt={proc.cv.fileName ?? 'CV'} className="h-28 w-full object-contain p-1" />
-                      ) : (
-                        <iframe src={cvUrl} title={proc.cv.fileName ?? 'CV'} className="h-32 w-full bg-white" />
-                      )}
+                  {liveCvPreview.loading ? (
+                    <div className="flex h-24 items-center justify-center rounded border border-zinc-200/80 bg-white text-xs text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900">
+                      Cargando vista previa desde Supabase Storage...
                     </div>
+                  ) : liveCvPreview.error ? (
+                    <div className="rounded border border-rose-200 bg-rose-50/70 px-3 py-2 text-[11px] text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+                      {liveCvPreview.error}
+                    </div>
+                  ) : (
+                    cvUrl &&
+                    (isImageCv || isPdfCv) && (
+                      <div className="overflow-hidden rounded border border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-900">
+                        {isImageCv ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={cvUrl} alt={proc.cv.fileName ?? 'CV'} className="h-28 w-full object-contain p-1" />
+                        ) : (
+                          <iframe src={cvUrl} title={proc.cv.fileName ?? 'CV'} className="h-32 w-full bg-white" />
+                        )}
+                      </div>
+                    )
                   )}
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div className="min-w-0">
@@ -786,20 +892,22 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
                         {isDemoMode ? 'Vista previa local UAT' : 'Guardado en Supabase'}
                       </p>
                     </div>
-                    {cvUrl && (
+                    {(cvUrl || liveCvPreview.error || liveCvPreview.loading) && (
                       <div className="flex items-center gap-1.5">
                         <Button type="button" size="sm" variant="outline" onClick={() => setPreviewOpen(true)}>
                           <Eye className="h-3.5 w-3.5" />
                           Ver
                         </Button>
-                        <a
-                          href={cvDownloadUrl}
-                          download={proc.cv.fileName ?? 'hoja-de-vida.pdf'}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-[#0f0f12] dark:text-zinc-200 dark:hover:bg-zinc-900"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          Descargar
-                        </a>
+                        {cvUrl && (
+                          <a
+                            href={cvApiDownloadUrl}
+                            download={proc.cv.fileName ?? 'hoja-de-vida.pdf'}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-[#0f0f12] dark:text-zinc-200 dark:hover:bg-zinc-900"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Descargar
+                          </a>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1053,12 +1161,14 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
         </div>
       </div>
 
-      {proc.cv && cvUrl && (
+      {proc.cv && (
         <DocumentPreviewModal
           open={previewOpen}
           fileName={proc.cv.fileName ?? 'hoja-de-vida.pdf'}
           mimeType={proc.cv.mimeType ?? 'application/pdf'}
-          objectUrl={cvUrl}
+          objectUrl={cvUrl || null}
+          loading={!isDemoMode && liveCvPreview.loading}
+          error={!isDemoMode ? liveCvPreview.error : null}
           onClose={() => setPreviewOpen(false)}
         />
       )}

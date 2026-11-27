@@ -13,6 +13,7 @@ import {
   Cpu,
   ExternalLink,
   FileSearch,
+  FileText,
   Link2,
   LogOut,
   Menu,
@@ -95,6 +96,12 @@ const NAV_GROUPS: NavGroup[] = [
     label: '3. Ciclo Activo y Retiro',
     items: [
       {
+        href: '/dashboard/contratos',
+        label: 'Contratos',
+        icon: FileText,
+        allowedRoles: ['TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN'],
+      },
+      {
         href: '/dashboard/novedades',
         label: 'Novedades y Horas Extra',
         icon: Clock4,
@@ -144,6 +151,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/dashboard/candidatos': 'Talento Humano · Selección y Candidatos',
   '/dashboard/entrevistas': 'Selección · Entrevistas y Competencias',
   '/dashboard/th': 'Talento Humano · Validación',
+  '/dashboard/contratos': 'Talento Humano · Contratos Laborales',
   '/dashboard/vencimientos': 'Alertas Automáticas · Vencimientos',
   '/dashboard/novedades': 'Incapacidades, Licencias, Permisos y Horas Extra',
   '/dashboard/it': 'IT & Helpdesk · Aprovisionamiento',
