@@ -11,10 +11,10 @@ import { MailService } from '../../common/mail/mail.service';
 import { resolveFrontendOrigin } from '../../common/utils/web-url.util';
 import {
   HELPDESK_ADAPTER_TOKEN,
+  HELPDESK_QUEUE_NAME,
   HelpdeskAdapter,
   HelpdeskTicketPayload,
 } from './adapters/helpdesk-adapter.interface';
-import { HELPDESK_QUEUE_NAME } from './helpdesk.processor';
 import { HelpdeskWebhookDto } from './dto/helpdesk-webhook.dto';
 
 @Injectable()
@@ -28,7 +28,7 @@ export class HelpdeskService {
     private readonly auditService: AuditService,
     @Optional() private readonly mailService?: MailService,
     @Optional() private readonly config?: ConfigService,
-  ) {}
+  ) { }
 
   async resolveItRecipients(): Promise<string[]> {
     const rawEnv =

@@ -1,17 +1,54 @@
 import { BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { Test } from '@nestjs/testing';
+import { getQueueToken } from '@nestjs/bullmq';
 import {
   ALLOWED_DOCUMENT_MIME_TYPES,
   SUPABASE_FREE_MAX_FILE_SIZE_BYTES,
   wizardStep1Schema,
 } from '@alliance-hcm/shared';
+import { AuditModule } from '../../common/audit/audit.module';
+import { AuditService } from '../../common/audit/audit.service';
+import { DatabaseModule } from '../../common/database/database.module';
+import { DatabaseService } from '../../common/database/database.service';
+import { MailModule } from '../../common/mail/mail.module';
+import { MailService } from '../../common/mail/mail.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { EmployeesController } from '../employees/employees.controller';
+import { HELPDESK_QUEUE_NAME } from '../helpdesk/adapters/helpdesk-adapter.interface';
+import { HelpdeskModule } from '../helpdesk/helpdesk.module';
+import { HelpdeskProcessor } from '../helpdesk/helpdesk.processor';
 import { HelpdeskService } from '../helpdesk/helpdesk.service';
 import { RuleEngineService } from '../rules/rule-engine.service';
 import { WorkflowsService } from './workflows.service';
 
 describe('Workflows Helpdesk Trigger, Storage Free Tier, Consent Step 1 & Inline Signature', () => {
+  it('resuelve dependencias DI de HelpdeskModule sin referencias circulares en BullQueue', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
+        DatabaseModule,
+        AuditModule,
+        MailModule,
+        HelpdeskModule,
+      ],
+    })
+      .overrideProvider(getQueueToken(HELPDESK_QUEUE_NAME))
+      .useValue({ add: jest.fn() })
+      .overrideProvider(DatabaseService)
+      .useValue({ db: {} })
+      .overrideProvider(AuditService)
+      .useValue({ record: jest.fn() })
+      .overrideProvider(MailService)
+      .useValue({ sendHelpdeskTicketEmail: jest.fn() })
+      .compile();
+
+    const service = moduleRef.get(HelpdeskService);
+    const processor = moduleRef.get(HelpdeskProcessor);
+    expect(service).toBeDefined();
+    expect(processor).toBeDefined();
+    expect(HELPDESK_QUEUE_NAME).toBe('helpdesk-provisioning');
+  });
   it('bloquea descarga (attachment) en firma Ley 1581 y fuerza Content-Disposition inline', async () => {
     const controller = new EmployeesController({
       getSignatureContent: jest.fn().mockResolvedValue({

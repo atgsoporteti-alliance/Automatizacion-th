@@ -7,12 +7,13 @@ import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
 import {
   HELPDESK_ADAPTER_TOKEN,
+  HELPDESK_QUEUE_NAME,
   HelpdeskAdapter,
   HelpdeskTicketPayload,
 } from './adapters/helpdesk-adapter.interface';
 import { HelpdeskService } from './helpdesk.service';
 
-export const HELPDESK_QUEUE_NAME = 'helpdesk-provisioning';
+export { HELPDESK_QUEUE_NAME };
 
 @Injectable()
 @Processor(HELPDESK_QUEUE_NAME)

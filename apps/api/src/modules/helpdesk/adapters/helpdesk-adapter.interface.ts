@@ -24,6 +24,7 @@ export interface HelpdeskTicketResponse {
   createdAt: string;
 }
 
+export const HELPDESK_QUEUE_NAME = 'helpdesk-provisioning';
 export const HELPDESK_ADAPTER_TOKEN = Symbol('HELPDESK_ADAPTER_TOKEN');
 
 export interface HelpdeskAdapter {

@@ -107,11 +107,10 @@ export default function ItDashboardPage() {
                 key={area}
                 type="button"
                 onClick={() => setAreaFilter(area)}
-                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
-                  areaFilter === area
+                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${areaFilter === area
                     ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
                     : 'text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-100'
-                }`}
+                  }`}
               >
                 {area === 'ALL' ? 'Todas' : area}
               </button>
@@ -183,18 +182,16 @@ export default function ItDashboardPage() {
                         return (
                           <div key={st} className="space-y-1.5">
                             <div
-                              className={`h-1 w-full rounded-full ${
-                                completed
+                              className={`h-1 w-full rounded-full ${completed
                                   ? 'bg-emerald-600 dark:bg-emerald-400'
                                   : 'bg-zinc-200 dark:bg-zinc-800'
-                              }`}
+                                }`}
                             />
                             <span
-                              className={`block truncate text-[11px] ${
-                                completed
+                              className={`block truncate text-[11px] ${completed
                                   ? 'font-medium text-zinc-900 dark:text-zinc-100'
                                   : 'text-zinc-400 dark:text-zinc-500'
-                              }`}
+                                }`}
                             >
                               {WORKFLOW_STEP_LABELS[st]}
                             </span>

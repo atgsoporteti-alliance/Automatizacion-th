@@ -42,7 +42,7 @@ interface UploadedMulterFile {
 @ApiTags('Candidate Portal')
 @Controller('candidate-portal')
 export class CandidatePortalController {
-  constructor(private readonly candidatePortalService: CandidatePortalService) {}
+  constructor(private readonly candidatePortalService: CandidatePortalService) { }
 
   // --- Endpoints internos para Talento Humano / Super Admin (siempre visibles sin límite de 15 días) ---
 
