@@ -1,13 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   CreateBucketCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import {
+  SUPABASE_FREE_MAX_FILE_SIZE_BYTES,
+  SUPABASE_FREE_MAX_FILE_SIZE_LABEL,
+} from '@alliance-hcm/shared';
 import { randomUUID } from 'crypto';
 
 export interface PresignedUploadResult {
@@ -50,6 +55,72 @@ export class StorageService {
 
   public getBucketName(): string {
     return this.bucket;
+  }
+
+  validateFile(params: {
+    buffer: Buffer;
+    mimeType?: string | null;
+    fileName: string;
+    allowedMimeTypes: readonly string[];
+    maxBytes?: number;
+  }): void {
+    if (!params.buffer || params.buffer.length === 0) {
+      throw new BadRequestException('El archivo adjunto está vacío.');
+    }
+
+    const maxBytes = params.maxBytes ?? SUPABASE_FREE_MAX_FILE_SIZE_BYTES;
+    if (params.buffer.length > maxBytes) {
+      throw new BadRequestException(
+        `El archivo "${params.fileName}" supera el límite de ${SUPABASE_FREE_MAX_FILE_SIZE_LABEL} configurado para Supabase Storage (Free Tier). Comprímelo o reduce su tamaño antes de subirlo.`,
+      );
+    }
+
+    const cleanMime = (params.mimeType ?? '').trim().toLowerCase().split(';')[0];
+    const ext = params.fileName.toLowerCase().split('.').pop() ?? '';
+    const allowedExtMap: Record<string, string> = {
+      pdf: 'application/pdf',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    };
+    const inferredMime = allowedExtMap[ext];
+
+    const mimeAccepted = Boolean(cleanMime && params.allowedMimeTypes.includes(cleanMime));
+    const fallbackExtAccepted =
+      (!cleanMime || cleanMime === 'application/octet-stream') &&
+      Boolean(inferredMime && params.allowedMimeTypes.includes(inferredMime));
+
+    if (!mimeAccepted && !fallbackExtAccepted) {
+      throw new BadRequestException(
+        `Formato no permitido para "${params.fileName}" (${cleanMime || 'desconocido'}). Sube un archivo PDF o imagen válida.`,
+      );
+    }
+  }
+
+  async deleteObject(s3Key?: string | null): Promise<boolean> {
+    const cleanKey = s3Key?.trim();
+    if (!cleanKey || cleanKey.startsWith('demo/') || cleanKey.startsWith('http')) {
+      return false;
+    }
+
+    try {
+      await this.s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: cleanKey,
+        }),
+      );
+      this.logger.log(`Objeto previo eliminado de S3 (${this.bucket}): ${cleanKey}`);
+      return true;
+    } catch (err) {
+      this.logger.warn(
+        `No se pudo eliminar objeto previo ${cleanKey} de S3 (${this.bucket}): ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return false;
+    }
   }
 
   private async ensureBucketExists(): Promise<void> {

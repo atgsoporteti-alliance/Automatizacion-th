@@ -25,6 +25,7 @@ import {
   AuthenticatedUserProfile,
   OPERATIONAL_AREAS,
   OperationalArea,
+  SUPABASE_FREE_MAX_FILE_SIZE_BYTES,
   TIME_REQUEST_CATEGORIES,
   TIME_REQUEST_STATUSES,
   TimeRequestCategory,
@@ -100,7 +101,7 @@ export class TimeRequestsController {
   @Roles('TH_ANALYST', 'TH_ADMIN', 'AREA_LEADER', 'SUPER_ADMIN')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: SUPABASE_FREE_MAX_FILE_SIZE_BYTES },
     }),
   )
   @ApiConsumes('multipart/form-data')

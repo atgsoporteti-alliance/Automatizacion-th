@@ -71,17 +71,16 @@ export class EmployeesController {
   @ApiBearerAuth()
   @Roles('TH_ANALYST', 'TH_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({
-    summary: 'Previsualizar o descargar firma electrónica Ley 1581 desde el bucket S3',
+    summary: 'Previsualizar firma electrónica Ley 1581 desde el bucket S3 (solo vista en línea)',
   })
   async getSignatureContent(
     @Param('id') id: string,
-    @Query('download') download: string | undefined,
     @Res() res: Response,
   ) {
     const file = await this.employeesService.getSignatureContent(id);
-    const disposition = download === '1' || download === 'true' ? 'attachment' : 'inline';
     res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Content-Disposition', buildContentDispositionHeader(disposition, file.fileName));
+    res.setHeader('Content-Disposition', buildContentDispositionHeader('inline', file.fileName));
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
     res.send(file.buffer);
   }
 

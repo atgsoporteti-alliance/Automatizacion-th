@@ -9,12 +9,15 @@ import {
 @Injectable()
 export class ManageEngineAdapter implements HelpdeskAdapter {
   private readonly logger = new Logger(ManageEngineAdapter.name);
-  private readonly mockEnabled: boolean;
+  private readonly externalApiEnabled: boolean;
   private readonly apiUrl: string;
   private readonly apiKey: string;
 
   constructor(private readonly config: ConfigService) {
-    this.mockEnabled = this.config.get<string>('HELPDESK_MOCK_ENABLED', 'true') === 'true';
+    const mockFlag = this.config.get<string>('HELPDESK_MOCK_ENABLED', 'true') === 'true';
+    const externalFlag =
+      this.config.get<string>('HELPDESK_EXTERNAL_API_ENABLED', 'false') === 'true';
+    this.externalApiEnabled = !mockFlag && externalFlag;
     this.apiUrl = this.config.get<string>(
       'SERVICEDESK_API_URL',
       'https://servicedesk.alliance.local/api/v3',
@@ -23,17 +26,17 @@ export class ManageEngineAdapter implements HelpdeskAdapter {
   }
 
   async createTicket(payload: HelpdeskTicketPayload): Promise<HelpdeskTicketResponse> {
-    if (this.mockEnabled) {
+    if (!this.externalApiEnabled) {
       const suffix = Math.floor(1000 + Math.random() * 9000);
-      const ticketId = `SDP-${new Date().getFullYear()}-${suffix}`;
+      const ticketId = `IT-${new Date().getFullYear()}-${suffix}`;
       this.logger.log(
-        `[MOCK ServiceDesk Plus] Ticket creado ${ticketId} | Flujo=${payload.flowType} | Área=${payload.operationalArea} | Colaborador=${payload.employeeFullName}`,
+        `[Mesa de Ayuda IT · BD + Correo] Ticket generado ${ticketId} | Flujo=${payload.flowType} | Área=${payload.operationalArea} | Colaborador=${payload.employeeFullName}`,
       );
       return {
         ticketId,
         status: 'OPEN',
-        externalUrl: `${this.apiUrl.replace('/api/v3', '')}/WorkOrder.do?woMode=viewWO&woID=${ticketId}`,
-        provider: 'MOCK_SDP',
+        externalUrl: '',
+        provider: 'INTERNAL_IT_EMAIL',
         createdAt: new Date().toISOString(),
       };
     }
@@ -88,8 +91,8 @@ export class ManageEngineAdapter implements HelpdeskAdapter {
   }
 
   async cancelTicket(ticketId: string, reason: string): Promise<{ ticketId: string; status: string }> {
-    if (this.mockEnabled) {
-      this.logger.log(`[MOCK ServiceDesk Plus] Ticket ${ticketId} cancelado. Motivo: ${reason}`);
+    if (!this.externalApiEnabled) {
+      this.logger.log(`[Mesa de Ayuda IT · BD] Ticket ${ticketId} cancelado. Motivo: ${reason}`);
       return { ticketId, status: 'CANCELLED' };
     }
 

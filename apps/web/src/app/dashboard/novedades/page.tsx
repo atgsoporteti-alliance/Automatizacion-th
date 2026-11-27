@@ -23,6 +23,8 @@ import {
   computeInclusiveDays,
   formatDurationFromMinutes,
   OVERTIME_SURCHARGE_PERCENT,
+  SUPABASE_FREE_MAX_FILE_SIZE_BYTES,
+  SUPABASE_FREE_MAX_FILE_SIZE_LABEL,
   TIME_REQUEST_CATEGORIES,
   TIME_REQUEST_CATEGORY_LABELS,
   TIME_REQUEST_STATUS_LABELS,
@@ -673,11 +675,24 @@ export default function TimeRequestsDashboardPage() {
                 )}
 
                 <div className="space-y-1">
-                  <Label className="text-[11px]">Soporte PDF o imagen (opcional)</Label>
+                  <Label className="text-[11px]">
+                    Soporte PDF o imagen (opcional · máx. {SUPABASE_FREE_MAX_FILE_SIZE_LABEL})
+                  </Label>
                   <Input
                     type="file"
                     accept=".pdf,image/*"
-                    onChange={(e) => setSupportFile(e.target.files?.[0] ?? null)}
+                    onChange={(e) => {
+                      const picked = e.target.files?.[0] ?? null;
+                      if (picked && picked.size > SUPABASE_FREE_MAX_FILE_SIZE_BYTES) {
+                        setFeedback(
+                          `El archivo "${picked.name}" supera el límite de ${SUPABASE_FREE_MAX_FILE_SIZE_LABEL} para Supabase Storage (Free Tier).`,
+                        );
+                        e.target.value = '';
+                        setSupportFile(null);
+                        return;
+                      }
+                      setSupportFile(picked);
+                    }}
                   />
                 </div>
 
@@ -901,6 +916,13 @@ export default function TimeRequestsDashboardPage() {
                                   onChange={(e) => {
                                     const f = e.target.files?.[0];
                                     if (f) {
+                                      if (f.size > SUPABASE_FREE_MAX_FILE_SIZE_BYTES) {
+                                        setFeedback(
+                                          `El soporte "${f.name}" supera el límite de ${SUPABASE_FREE_MAX_FILE_SIZE_LABEL} para Supabase Storage (Free Tier).`,
+                                        );
+                                        e.target.value = '';
+                                        return;
+                                      }
                                       uploadRowSupportMutation.mutate({ id: item.id, file: f });
                                     }
                                   }}

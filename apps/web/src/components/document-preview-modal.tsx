@@ -11,6 +11,7 @@ interface DocumentPreviewModalProps {
   objectUrl: string | null;
   loading?: boolean;
   error?: string | null;
+  allowDownload?: boolean;
   onClose: () => void;
 }
 
@@ -21,6 +22,7 @@ export function DocumentPreviewModal({
   objectUrl,
   loading = false,
   error = null,
+  allowDownload = true,
   onClose,
 }: DocumentPreviewModalProps) {
   useEffect(() => {
@@ -50,7 +52,7 @@ export function DocumentPreviewModal({
             <span className="truncate text-sm font-medium">{fileName}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            {objectUrl && (
+            {allowDownload && objectUrl ? (
               <a
                 href={objectUrl}
                 download={fileName}
@@ -59,7 +61,11 @@ export function DocumentPreviewModal({
                 <Download className="h-3.5 w-3.5" />
                 Descargar
               </a>
-            )}
+            ) : !allowDownload ? (
+              <span className="rounded border border-zinc-200 px-2.5 py-1 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                Solo visualización
+              </span>
+            ) : null}
             <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar">
               <X className="h-4 w-4" />
             </Button>
@@ -80,12 +86,16 @@ export function DocumentPreviewModal({
               No se encontró contenido para previsualizar.
             </div>
           ) : isImage ? (
-            <div className="flex h-[65vh] items-center justify-center overflow-auto rounded-md bg-white p-4 dark:bg-zinc-900">
+            <div
+              className="flex h-[65vh] items-center justify-center overflow-auto rounded-md bg-white p-4 dark:bg-zinc-900"
+              onContextMenu={!allowDownload ? (e) => e.preventDefault() : undefined}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={objectUrl}
                 alt={fileName}
-                className="max-h-full max-w-full object-contain"
+                draggable={allowDownload}
+                className={`max-h-full max-w-full object-contain ${!allowDownload ? 'select-none pointer-events-none' : ''}`}
               />
             </div>
           ) : isPdf ? (
@@ -97,14 +107,16 @@ export function DocumentPreviewModal({
           ) : (
             <div className="flex h-[65vh] flex-col items-center justify-center gap-3 text-xs text-zinc-600 dark:text-zinc-300">
               <p>Previsualización directa no disponible para el tipo {mimeType}.</p>
-              <a
-                href={objectUrl}
-                download={fileName}
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-zinc-900 px-4 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Descargar para abrir
-              </a>
+              {allowDownload && (
+                <a
+                  href={objectUrl}
+                  download={fileName}
+                  className="inline-flex h-9 items-center gap-2 rounded-md bg-zinc-900 px-4 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Descargar para abrir
+                </a>
+              )}
             </div>
           )}
         </div>

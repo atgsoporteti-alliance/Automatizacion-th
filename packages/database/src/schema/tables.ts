@@ -261,6 +261,8 @@ export const candidateProcesses = pgTable(
     cvUploadedAt: timestamp('cv_uploaded_at', { withTimezone: true }),
 
     preOnboardingToken: text('pre_onboarding_token'),
+    habeasDataAcceptedAt: timestamp('habeas_data_accepted_at', { withTimezone: true }),
+    habeasDataPolicyVersion: varchar('habeas_data_policy_version', { length: 40 }),
     employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'set null' }),
     workflowId: uuid('workflow_id').references(() => onboardingOffboardingWorkflows.id, {
       onDelete: 'set null',

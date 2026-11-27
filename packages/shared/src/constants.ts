@@ -82,6 +82,25 @@ export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
 export const HABEAS_DATA_POLICY_VERSION = 'ALLIANCE-HD-2026-v1.0';
 
+export const HABEAS_DATA_LEGAL_REVIEW_NOTE =
+  'Texto referencial sujeto a validación final con Jurídico.';
+
+export const SUPABASE_FREE_MAX_FILE_SIZE_BYTES = 4 * 1024 * 1024; // 4 MB (optimizado Free Tier 1 GB)
+export const SUPABASE_FREE_MAX_FILE_SIZE_LABEL = '4 MB';
+
+export const ALLOWED_DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
+
+export const ALLOWED_CV_MIME_TYPES = [
+  ...ALLOWED_DOCUMENT_MIME_TYPES,
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+] as const;
+
 export const HABEAS_DATA_POLICY_TEXT = `AUTORIZACIÓN DE TRATAMIENTO DE DATOS PERSONALES – LEY 1581 DE 2012 (HABEAS DATA)
 
 En cumplimiento de la Ley Estatutaria 1581 de 2012, el Decreto Reglamentario 1377 de 2013 y la Política de Tratamiento de Datos Personales de Alliance, autorizo de manera previa, expresa, informada y voluntaria a Alliance para recolectar, almacenar, usar, circular, actualizar y suprimir los datos personales suministrados en este formulario de Pre-Ingreso Digital.

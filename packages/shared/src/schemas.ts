@@ -9,8 +9,14 @@ import {
   WORKFLOW_URGENCIES,
 } from './constants';
 
-// Paso 1: Identificación y Datos Personales
+// Paso 1: Consentimiento Ley 1581 + Identificación y Datos Personales
 export const wizardStep1Schema = z.object({
+  habeasDataAccepted: z.literal(true, {
+    errorMap: () => ({
+      message:
+        'Debes aceptar la autorización de tratamiento de datos (Ley 1581) antes de diligenciar tus datos personales.',
+    }),
+  }),
   fullName: z.string().min(3, 'Ingresa tu nombre completo').max(150),
   preferredNameCredentials: z
     .string()
@@ -71,16 +77,13 @@ export const wizardStep4Schema = z.object({
   hasBancolombiaAccount: z.boolean().default(false),
 });
 
-// Paso 5: Contacto de Emergencia + Habeas Data + Firma + OTP
+// Paso 5: Contacto de Emergencia + Firma Manuscrita + OTP
 export const wizardStep5Schema = z.object({
   emergencyContactName: z.string().min(3, 'Ingresa el nombre del contacto de emergencia').max(150),
   emergencyContactRelationship: z.string().min(2, 'Ingresa el parentesco').max(80),
   emergencyContactPhone: z
     .string()
     .regex(/^[0-9+\-\s]{7,20}$/, 'Ingresa un celular de emergencia válido'),
-  habeasDataAccepted: z.literal(true, {
-    errorMap: () => ({ message: 'Debes aceptar la autorización de Ley 1581 (Habeas Data)' }),
-  }),
   signatureDataUrl: z.string().min(20, 'Debes registrar tu firma digital en el recuadro'),
   otpCode: z.string().regex(/^\d{6}$/, 'Ingresa el código OTP de 6 dígitos'),
 });

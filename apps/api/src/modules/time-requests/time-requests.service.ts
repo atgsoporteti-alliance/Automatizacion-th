@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { desc, eq } from 'drizzle-orm';
 import { employees, timeRequests } from '@alliance-hcm/database';
 import {
+  ALLOWED_DOCUMENT_MIME_TYPES,
   AuthenticatedUserProfile,
   canAccessOperationalArea,
   computeDurationMinutes,
@@ -562,12 +563,23 @@ export class TimeRequestsService {
     this.assertLeaderScope(user, existing.operationalArea ?? null);
 
     const fileName = decodeUploadedFileName(file.originalname);
+    this.storageService.validateFile({
+      buffer: file.buffer,
+      mimeType: file.mimetype,
+      fileName,
+      allowedMimeTypes: ALLOWED_DOCUMENT_MIME_TYPES,
+    });
+
     const uploaded = await this.storageService.uploadObject({
       folder: `time-requests/${id}`,
       fileName,
       contentType: file.mimetype || 'application/pdf',
       body: file.buffer,
     });
+
+    if (existing.supportS3Key && existing.supportS3Key !== uploaded.s3Key) {
+      await this.storageService.deleteObject(existing.supportS3Key);
+    }
 
     const [updated] = await this.database.db
       .update(timeRequests)

@@ -16,6 +16,7 @@ import {
   candidateProcesses,
 } from '@alliance-hcm/database';
 import {
+  ALLOWED_CV_MIME_TYPES,
   AuthenticatedUserProfile,
   canAccessOperationalArea,
   CANDIDATE_PORTAL_VISIBILITY_DAYS,
@@ -26,6 +27,7 @@ import {
   computeCompetencyScoreSummary,
   detectMeetingPlatform,
   EVALUATION_RECOMMENDATION_LABELS,
+  HABEAS_DATA_POLICY_VERSION,
   hasMeetingOverlap,
   MEETING_PLATFORM_LABELS,
   MEETING_PLATFORM_LOCATIONS,
@@ -58,7 +60,7 @@ export class CandidatePortalService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     @Optional() private readonly mailService?: MailService,
-  ) {}
+  ) { }
 
   private buildUrls(accessToken: string, preOnboardingToken: string | null, requestOrigin?: string) {
     const webUrl = resolveFrontendOrigin({
@@ -89,10 +91,10 @@ export class CandidatePortalService {
         candidateProcessId: params.processId,
         ...(params.employeeId && params.workflowId
           ? {
-              employeeId: params.employeeId,
-              workflowId: params.workflowId,
-              correctionNote: params.correctionNote,
-            }
+            employeeId: params.employeeId,
+            workflowId: params.workflowId,
+            correctionNote: params.correctionNote,
+          }
           : {}),
         purpose: 'PRE_ONBOARDING',
       },
@@ -973,13 +975,15 @@ export class CandidatePortalService {
         appliedRole: proc.appliedRole,
         stage: proc.stage,
         stageLabel: CANDIDATE_STAGE_LABELS[proc.stage],
+        habeasDataAcceptedAt: proc.habeasDataAcceptedAt ?? null,
+        habeasDataPolicyVersion: proc.habeasDataPolicyVersion ?? null,
         cv: proc.cvS3Key
           ? {
-              fileName: proc.cvFileName,
-              mimeType: proc.cvMimeType,
-              fileSize: proc.cvFileSize,
-              uploadedAt: proc.cvUploadedAt,
-            }
+            fileName: proc.cvFileName,
+            mimeType: proc.cvMimeType,
+            fileSize: proc.cvFileSize,
+            uploadedAt: proc.cvUploadedAt,
+          }
           : null,
         preOnboarding: {
           enabled: Boolean(proc.preOnboardingToken),
@@ -1003,10 +1007,59 @@ export class CandidatePortalService {
     };
   }
 
+  async acceptPublicConsent(token: string, now: Date = new Date()) {
+    const proc = await this.database.db.query.candidateProcesses.findFirst({
+      where: eq(candidateProcesses.accessToken, token),
+    });
+    if (!proc) {
+      throw new NotFoundException('El enlace al portal de candidato no es válido.');
+    }
+
+    const visibility = computeCandidatePortalVisibility(proc.hiringApprovedAt, now);
+    if (visibility.isExpired) {
+      throw new ForbiddenException(
+        `El acceso temporal de ${CANDIDATE_PORTAL_VISIBILITY_DAYS} días ha expirado tras tu contratación.`,
+      );
+    }
+
+    const acceptedAt = proc.habeasDataAcceptedAt ?? now;
+    const policyVersion = proc.habeasDataPolicyVersion ?? HABEAS_DATA_POLICY_VERSION;
+
+    const [updated] = await this.database.db
+      .update(candidateProcesses)
+      .set({
+        habeasDataAcceptedAt: acceptedAt,
+        habeasDataPolicyVersion: policyVersion,
+        updatedAt: now,
+      })
+      .where(eq(candidateProcesses.id, proc.id))
+      .returning();
+
+    if (!proc.habeasDataAcceptedAt) {
+      await this.auditService.record({
+        actorId: proc.candidateEmail,
+        action: 'CANDIDATE_DATA_CONSENT_ACCEPTED',
+        entity: 'candidate_processes',
+        entityId: proc.id,
+        newValues: {
+          policyVersion,
+          acceptedAt: acceptedAt.toISOString(),
+        },
+      });
+    }
+
+    return {
+      accepted: true,
+      habeasDataAcceptedAt: updated.habeasDataAcceptedAt,
+      habeasDataPolicyVersion: updated.habeasDataPolicyVersion,
+    };
+  }
+
   async uploadCandidateCv(
     token: string,
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer },
     now: Date = new Date(),
+    options?: { acceptConsent?: boolean },
   ) {
     const proc = await this.database.db.query.candidateProcesses.findFirst({
       where: eq(candidateProcesses.accessToken, token),
@@ -1028,13 +1081,30 @@ export class CandidatePortalService {
       );
     }
 
+    if (!proc.habeasDataAcceptedAt && !options?.acceptConsent) {
+      throw new BadRequestException(
+        'Debes aceptar primero la autorización de tratamiento de datos (Ley 1581) antes de subir tu hoja de vida.',
+      );
+    }
+
     const fileName = decodeUploadedFileName(file.originalname);
+    this.storageService.validateFile?.({
+      buffer: file.buffer,
+      mimeType: file.mimetype,
+      fileName,
+      allowedMimeTypes: ALLOWED_CV_MIME_TYPES,
+    });
+
     const uploaded = await this.storageService.uploadObject({
       folder: `candidates/${proc.id}/cv`,
       fileName,
       contentType: file.mimetype || 'application/pdf',
       body: file.buffer,
     });
+
+    if (proc.cvS3Key && proc.cvS3Key !== uploaded.s3Key) {
+      await this.storageService.deleteObject?.(proc.cvS3Key);
+    }
 
     const nextStage: CandidateStage =
       proc.stage === 'REGISTERED' ? 'CV_UPLOADED' : proc.stage;
@@ -1048,6 +1118,8 @@ export class CandidatePortalService {
         cvS3Key: uploaded.s3Key,
         cvS3Url: uploaded.publicUrl,
         cvUploadedAt: now,
+        habeasDataAcceptedAt: proc.habeasDataAcceptedAt ?? now,
+        habeasDataPolicyVersion: proc.habeasDataPolicyVersion ?? HABEAS_DATA_POLICY_VERSION,
         stage: nextStage,
         updatedAt: now,
       })
@@ -1307,10 +1379,10 @@ export class CandidatePortalService {
     const scoped =
       user?.role === 'AREA_LEADER' && user.operationalArea && user.operationalArea !== 'ALL'
         ? rows.filter(
-            (r) =>
-              canAccessOperationalArea(user.operationalArea, r.operationalArea ?? null) ||
-              r.evaluatorEmail.toLowerCase() === user.email.toLowerCase(),
-          )
+          (r) =>
+            canAccessOperationalArea(user.operationalArea, r.operationalArea ?? null) ||
+            r.evaluatorEmail.toLowerCase() === user.email.toLowerCase(),
+        )
         : rows;
 
     const items = scoped.map((r) => this.formatEvaluation(r));
@@ -1337,12 +1409,12 @@ export class CandidatePortalService {
 
     let meeting:
       | {
-          id: string;
-          processId: string;
-          title: string;
-          meetingType: string;
-          operationalArea: OperationalArea | null;
-        }
+        id: string;
+        processId: string;
+        title: string;
+        meetingType: string;
+        operationalArea: OperationalArea | null;
+      }
       | undefined;
 
     if (dto.meetingId) {

@@ -12,6 +12,7 @@ import { employees, onboardingOffboardingWorkflows } from '@alliance-hcm/databas
 import {
   AuthenticatedUserProfile,
   canAccessOperationalArea,
+  canApproveDsiGate,
   OperationalArea,
   sanitizeEmployeeForRole,
   WorkflowStep,
@@ -29,6 +30,8 @@ import {
   ApproveThWorkflowDto,
   CancelNoShowDto,
   ReturnToCandidateDto,
+  TriggerHelpdeskDto,
+  UpdateItStatusDto,
 } from './dto/workflow-actions.dto';
 
 @Injectable()
@@ -128,7 +131,12 @@ export class WorkflowsService {
     };
   }
 
-  async approveByTh(workflowId: string, dto: ApproveThWorkflowDto, actorId = 'th-analyst') {
+  async approveByTh(
+    workflowId: string,
+    dto: ApproveThWorkflowDto,
+    actorId = 'th-analyst',
+    requestOrigin?: string,
+  ) {
     const workflow = await this.database.db.query.onboardingOffboardingWorkflows.findFirst({
       where: eq(onboardingOffboardingWorkflows.id, workflowId),
       with: { employee: true },
@@ -199,6 +207,7 @@ export class WorkflowsService {
         category: evaluation.rule.helpdeskCategory,
         provisioningItems: evaluation.provisioningItems,
         notes: dto.notes,
+        requestOrigin,
       });
     }
 
@@ -234,8 +243,9 @@ export class WorkflowsService {
     workflowId: string,
     dto: ApproveDsiWorkflowDto,
     user?: AuthenticatedUserProfile,
+    requestOrigin?: string,
   ) {
-    if (user && user.role !== 'SUPER_ADMIN' && user.operationalArea !== 'DSI') {
+    if (user && !canApproveDsiGate(user)) {
       throw new ForbiddenException(
         'Solo el Líder de DSI o un Super Administrador puede aprobar la puerta DSI_LEADER_APPROVAL.',
       );
@@ -289,6 +299,7 @@ export class WorkflowsService {
       category: evaluation.rule.helpdeskCategory,
       provisioningItems: evaluation.provisioningItems,
       notes: dto.notes,
+      requestOrigin,
     });
 
     await this.auditService.record({
@@ -453,5 +464,135 @@ export class WorkflowsService {
       correctionNote: dto.reason,
       emailSent: Boolean(emailRes?.sent),
     };
+  }
+
+  async triggerHelpdeskTicket(
+    workflowId: string,
+    user: AuthenticatedUserProfile,
+    dto?: TriggerHelpdeskDto,
+    requestOrigin?: string,
+  ) {
+    const workflow = await this.database.db.query.onboardingOffboardingWorkflows.findFirst({
+      where: eq(onboardingOffboardingWorkflows.id, workflowId),
+      with: { employee: true },
+    });
+
+    if (!workflow) {
+      throw new NotFoundException(`Workflow ${workflowId} no encontrado`);
+    }
+
+    if (workflow.currentStep === 'CANCELLED_NO_SHOW') {
+      throw new BadRequestException('No es posible generar un ticket sobre un workflow cancelado.');
+    }
+    if (workflow.currentStep === 'CANDIDATE_PENDING') {
+      throw new BadRequestException(
+        'El colaborador aún no ha enviado su formulario de Pre-Ingreso.',
+      );
+    }
+    if (workflow.flowType === 'ONBOARDING' && workflow.currentStep === 'TH_REVIEW') {
+      throw new BadRequestException(
+        'Talento Humano debe aprobar primero el área operativa antes de generar el ticket Helpdesk.',
+      );
+    }
+    if (workflow.currentStep === 'DSI_LEADER_APPROVAL') {
+      throw new BadRequestException(
+        'Por regla del área DSI, primero debe aprobarse la puerta DSI_LEADER_APPROVAL antes de generar el ticket Helpdesk.',
+      );
+    }
+
+    const area: OperationalArea = workflow.employee.operationalArea ?? 'CUSTOMER';
+    const noteText = dto?.notes?.trim() || workflow.notes || undefined;
+
+    const payload =
+      workflow.flowType === 'OFFBOARDING'
+        ? {
+            workflowId: workflow.id,
+            employeeId: workflow.employeeId,
+            employeeFullName: workflow.employee.fullName,
+            nationalId: workflow.employee.nationalId,
+            corporateEmail: workflow.employee.corporateEmail ?? workflow.employee.personalEmail,
+            operationalArea: area,
+            flowType: 'OFFBOARDING' as const,
+            urgency: workflow.urgency,
+            template:
+              workflow.urgency === 'CRITICAL_IMMEDIATE'
+                ? 'TPL_OFFB_CRITICAL_IMMEDIATE'
+                : 'TPL_OFFB_STANDARD_CUTOFF',
+            category:
+              workflow.urgency === 'CRITICAL_IMMEDIATE'
+                ? 'Offboarding - Immediate Access Revocation'
+                : 'Offboarding - Scheduled Access Revocation',
+            provisioningItems: [
+              'Revocación de sesiones corporativas (Correo, SSO, VPN)',
+              'Bloqueo de accesos Git, CRM y licencias asignadas',
+              'Entrega / inventario de hardware corporativo',
+            ],
+            notes: noteText,
+            requestOrigin,
+          }
+        : (() => {
+            const evaluation = this.ruleEngine.evaluateOperationalArea(
+              area,
+              workflow.employee.preferredNameCredentials,
+            );
+            const existingPayload = workflow.provisioningPayload as
+              | { items?: string[] }
+              | null
+              | undefined;
+            return {
+              workflowId: workflow.id,
+              employeeId: workflow.employeeId,
+              employeeFullName: workflow.employee.fullName,
+              nationalId: workflow.employee.nationalId,
+              corporateEmail: workflow.employee.corporateEmail ?? evaluation.suggestedCorporateEmail,
+              operationalArea: area,
+              flowType: 'ONBOARDING' as const,
+              urgency: workflow.urgency,
+              template: evaluation.rule.helpdeskTemplate,
+              category: evaluation.rule.helpdeskCategory,
+              provisioningItems:
+                existingPayload?.items && existingPayload.items.length > 0
+                  ? existingPayload.items
+                  : evaluation.provisioningItems,
+              notes: noteText,
+              requestOrigin,
+            };
+          })();
+
+    const result = await this.helpdeskService.dispatchDirectTicket({
+      payload,
+      existingTicketId: workflow.helpdeskTicketId,
+      currentStep: workflow.currentStep,
+      actorEmail: user.email,
+    });
+
+    if (workflow.flowType === 'ONBOARDING') {
+      await this.candidatePortalService?.syncWorkflowModification({
+        workflowId: workflow.id,
+        employeeId: workflow.employeeId,
+        candidateEmail: workflow.employee.personalEmail,
+        nationalId: workflow.employee.nationalId,
+        type: 'STAGE_CHANGE',
+        title: `Ticket Helpdesk IT ${result.ticketId} ${result.isResend ? 'notificado' : 'generado'}`,
+        message: `Se generó el ticket ${result.ticketId} en base de datos y se envió alerta por correo a Mesa de Ayuda IT.`,
+        step: result.workflow?.currentStep ?? 'IT_PROVISIONING',
+      });
+    }
+
+    return result;
+  }
+
+  async updateItStatus(
+    workflowId: string,
+    user: AuthenticatedUserProfile,
+    dto: UpdateItStatusDto,
+  ) {
+    return this.helpdeskService.updateStatusByWorkflowId({
+      workflowId,
+      status: dto.status,
+      actorEmail: user.email,
+      corporateEmailAssigned: dto.corporateEmailAssigned,
+      notes: dto.notes,
+    });
   }
 }

@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { DocumentType } from '@alliance-hcm/shared';
+import { DocumentType, SUPABASE_FREE_MAX_FILE_SIZE_BYTES } from '@alliance-hcm/shared';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PreOnboardingService } from './pre-onboarding.service';
@@ -79,7 +79,7 @@ export class PreOnboardingController {
   @Public()
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: SUPABASE_FREE_MAX_FILE_SIZE_BYTES },
     }),
   )
   @ApiConsumes('multipart/form-data')

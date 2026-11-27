@@ -2,6 +2,8 @@ import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   AuthenticatedUserProfile,
+  canApproveDsiGate,
+  hasPermission,
   sanitizeEmployeeForRole,
 } from '@alliance-hcm/shared';
 import { RolesGuard } from './guards/roles.guard';
@@ -130,5 +132,25 @@ describe('RBAC Security & Data Masking', () => {
     expect(fullForTh.eps).toBe('Sura EPS');
     expect(fullForTh.pensionFund).toBe('Porvenir');
     expect(fullForTh.hasBancolombiaAccount).toBe(true);
+  });
+
+  it('valida matriz de roles y puerta DSI exclusiva para Líder DSI o Super Admin', () => {
+    expect(
+      canApproveDsiGate({ role: 'AREA_LEADER', operationalArea: 'DSI' }),
+    ).toBe(true);
+    expect(
+      canApproveDsiGate({ role: 'SUPER_ADMIN', operationalArea: 'ALL' }),
+    ).toBe(true);
+    expect(
+      canApproveDsiGate({ role: 'AREA_LEADER', operationalArea: 'CUSTOMER' }),
+    ).toBe(false);
+    expect(
+      canApproveDsiGate({ role: 'TH_ADMIN', operationalArea: 'ALL' }),
+    ).toBe(false);
+
+    expect(hasPermission('TH_ANALYST', 'workflow:cancel_no_show')).toBe(false);
+    expect(hasPermission('TH_ADMIN', 'workflow:cancel_no_show')).toBe(true);
+    expect(hasPermission('IT_SUPPORT', 'helpdesk:manage')).toBe(true);
+    expect(hasPermission('CLEARANCE_APPROVER', 'employees:read_full')).toBe(false);
   });
 });

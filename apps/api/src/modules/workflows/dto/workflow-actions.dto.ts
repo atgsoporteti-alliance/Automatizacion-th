@@ -69,3 +69,30 @@ export class ReturnToCandidateDto {
   @MaxLength(500)
   reason: string;
 }
+
+export class TriggerHelpdeskDto {
+  @ApiPropertyOptional({
+    example: 'Solicitud priorizada desde consola IT / TH con envío a Mesa de Ayuda.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
+}
+
+export class UpdateItStatusDto {
+  @ApiProperty({ enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'CANCELLED'] })
+  @IsIn(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'CANCELLED'])
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'CANCELLED';
+
+  @ApiPropertyOptional({ example: 'laura.gomez@alliance.com.co' })
+  @IsOptional()
+  @IsEmail()
+  corporateEmailAssigned?: string;
+
+  @ApiPropertyOptional({ example: 'Aprovisionamiento finalizado por Mesa de Ayuda IT.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  notes?: string;
+}

@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { eq } from 'drizzle-orm';
@@ -10,6 +10,7 @@ import {
   HelpdeskAdapter,
   HelpdeskTicketPayload,
 } from './adapters/helpdesk-adapter.interface';
+import { HelpdeskService } from './helpdesk.service';
 
 export const HELPDESK_QUEUE_NAME = 'helpdesk-provisioning';
 
@@ -22,6 +23,7 @@ export class HelpdeskProcessor extends WorkerHost {
     @Inject(HELPDESK_ADAPTER_TOKEN) private readonly adapter: HelpdeskAdapter,
     private readonly database: DatabaseService,
     private readonly auditService: AuditService,
+    @Optional() private readonly helpdeskService?: HelpdeskService,
   ) {
     super();
   }
@@ -41,6 +43,8 @@ export class HelpdeskProcessor extends WorkerHost {
       })
       .where(eq(onboardingOffboardingWorkflows.id, job.data.workflowId));
 
+    const mailSummary = await this.helpdeskService?.notifyItMailbox(ticket.ticketId, job.data);
+
     await this.auditService.record({
       actorId: 'bullmq-helpdesk-worker',
       action: `HELPDESK_TICKET_DISPATCHED_${job.name.toUpperCase()}`,
@@ -50,6 +54,8 @@ export class HelpdeskProcessor extends WorkerHost {
         ticketId: ticket.ticketId,
         provider: ticket.provider,
         status: ticket.status,
+        recipients: mailSummary?.recipients ?? [],
+        emailsSentCount: mailSummary?.emailsSentCount ?? 0,
       },
     });
 

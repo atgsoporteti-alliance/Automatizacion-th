@@ -313,6 +313,8 @@ export interface PublicCandidatePortalResponse {
     appliedRole: string | null;
     stage: CandidateStage;
     stageLabel: string;
+    habeasDataAcceptedAt?: string | null;
+    habeasDataPolicyVersion?: string | null;
     cv: {
       fileName: string | null;
       mimeType: string | null;
@@ -635,6 +637,35 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  triggerHelpdeskTicket: (workflowId: string, notes?: string) =>
+    apiFetch<{
+      mode: 'EMAIL_AND_DB';
+      isResend: boolean;
+      ticketId: string;
+      recipients: string[];
+      emailsSentCount: number;
+      workflow: WorkflowRecord;
+    }>(`/workflows/${workflowId}/trigger-helpdesk`, {
+      method: 'POST',
+      body: JSON.stringify(notes ? { notes } : {}),
+    }),
+  updateItWorkflowStatus: (
+    workflowId: string,
+    payload: {
+      status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'CANCELLED';
+      corporateEmailAssigned?: string;
+      notes?: string;
+    },
+  ) =>
+    apiFetch<{
+      workflowId: string;
+      ticketId: string | null;
+      helpdeskTicketStatus: string | null;
+      currentStep: WorkflowStep;
+    }>(`/workflows/${workflowId}/it-status`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   getOffboardings: () => apiFetch<WorkflowRecord[]>('/offboarding'),
   initiateOffboarding: (payload: {
     employeeId: string;
@@ -769,6 +800,15 @@ export const apiClient = {
     apiFetch<PublicCandidatePortalResponse>(
       `/candidate-portal/public/${encodeURIComponent(token)}`,
     ),
+  acceptCandidateConsent: (token: string) =>
+    apiFetch<{
+      accepted: boolean;
+      habeasDataAcceptedAt: string;
+      habeasDataPolicyVersion: string;
+    }>(`/candidate-portal/public/${encodeURIComponent(token)}/consent`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
   uploadCandidateCv: async (
     token: string,
     file: File,

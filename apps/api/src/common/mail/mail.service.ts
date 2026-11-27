@@ -590,4 +590,49 @@ export class MailService {
       }),
     });
   }
+
+  async sendHelpdeskTicketEmail(params: {
+    to: string;
+    ticketId: string;
+    flowType: 'ONBOARDING' | 'OFFBOARDING' | 'CANCEL_NO_SHOW';
+    urgency: string;
+    employeeFullName: string;
+    nationalId: string;
+    corporateEmail: string;
+    operationalArea: string;
+    template: string;
+    category: string;
+    provisioningItems: string[];
+    notes?: string;
+    dashboardUrl: string;
+  }) {
+    const isOffboarding = params.flowType === 'OFFBOARDING';
+    const isCritical = params.urgency === 'CRITICAL_IMMEDIATE';
+    const flowLabel = isOffboarding ? 'Retiro / Offboarding' : 'Ingreso / Onboarding';
+    const urgencyLabel = isCritical ? 'CRÍTICA · INMEDIATA' : 'Estándar';
+    const itemsHtml = params.provisioningItems
+      .map((item) => `<li style="margin:0 0 4px 0;">${escapeHtml(item)}</li>`)
+      .join('');
+
+    return this.sendEmail({
+      to: params.to,
+      subject: `[Ticket Helpdesk ${params.ticketId}] ${flowLabel} · ${params.employeeFullName} (${params.operationalArea})`,
+      text: `Ticket Mesa de Ayuda IT ${params.ticketId} (${flowLabel} · Urgencia: ${urgencyLabel})\nColaborador: ${params.employeeFullName} (CC ${params.nationalId})\nÁrea: ${params.operationalArea}\nCorreo corporativo: ${params.corporateEmail}\nPlantilla: ${params.template}\nÍtems:\n${params.provisioningItems.map((i) => `- ${i}`).join('\n')}${params.notes ? `\nNotas: ${params.notes}` : ''}\nConsola IT: ${params.dashboardUrl}`,
+      html: this.renderLayout({
+        eyebrow: `Mesa de Ayuda IT · Ticket ${params.ticketId}`,
+        title: `${flowLabel} · ${params.employeeFullName}`,
+        bodyHtml: `<p style="margin:0 0 8px 0;">Se generó y registró en base de datos un ticket de atención para <strong>Mesa de Ayuda IT</strong>:</p>
+          <p style="margin:0 0 6px 0;"><strong>Ticket ID:</strong> <code>${escapeHtml(params.ticketId)}</code></p>
+          <p style="margin:0 0 6px 0;"><strong>Urgencia:</strong> ${escapeHtml(urgencyLabel)} · <strong>Área:</strong> ${escapeHtml(params.operationalArea)}</p>
+          <p style="margin:0 0 6px 0;"><strong>Colaborador:</strong> ${escapeHtml(params.employeeFullName)} · CC ${escapeHtml(params.nationalId)}</p>
+          <p style="margin:0 0 6px 0;"><strong>Correo corporativo:</strong> ${escapeHtml(params.corporateEmail)}</p>
+          <p style="margin:0 0 6px 0;"><strong>Categoría / Plantilla:</strong> ${escapeHtml(params.category)} (<code>${escapeHtml(params.template)}</code>)</p>
+          <p style="margin:10px 0 4px 0;"><strong>Ítems a gestionar:</strong></p>
+          <ul style="margin:0 0 10px 18px;padding:0;">${itemsHtml}</ul>
+          ${params.notes ? `<p style="margin:8px 0 0 0;"><strong>Notas:</strong> ${escapeHtml(params.notes)}</p>` : ''}`,
+        ctaLabel: isOffboarding ? 'Abrir Offboarding / Paz y Salvo' : 'Abrir Consola Operativa IT',
+        ctaUrl: params.dashboardUrl,
+      }),
+    });
+  }
 }

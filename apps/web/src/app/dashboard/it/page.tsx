@@ -5,9 +5,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircle2,
   Clock,
+  Mail,
   RefreshCw,
   Ticket,
-  Webhook,
 } from 'lucide-react';
 import {
   OPERATIONAL_AREAS,
@@ -38,7 +38,8 @@ const TIMELINE_STEPS: WorkflowStep[] = [
 export default function ItDashboardPage() {
   const queryClient = useQueryClient();
   const [areaFilter, setAreaFilter] = useState<OperationalArea | 'ALL'>('ALL');
-  const [webhookMessage, setWebhookMessage] = useState<string | null>(null);
+  const [itMessage, setItMessage] = useState<string | null>(null);
+  const [itError, setItError] = useState<string | null>(null);
 
   const { data: workflows = [], isLoading } = useQuery({
     queryKey: ['workflows', 'IT', areaFilter],
@@ -48,22 +49,42 @@ export default function ItDashboardPage() {
       }),
   });
 
-  const webhookMutation = useMutation({
-    mutationFn: (payload: {
-      ticketId: string;
-      status: 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
-      notes: string;
-    }) =>
-      apiClient.simulateHelpdeskWebhook({
-        ...payload,
-        technicianEmail: 'ingeniero.soporte@alliance.com.co',
-      }),
-    onSuccess: (_data, vars) => {
-      setWebhookMessage(
-        `Webhook ServiceDesk Plus simulado para ticket ${vars.ticketId} → ${vars.status}`,
+  const triggerTicketMutation = useMutation({
+    mutationFn: (workflowId: string) => apiClient.triggerHelpdeskTicket(workflowId),
+    onSuccess: (res) => {
+      setItError(null);
+      setItMessage(
+        `Ticket ${res.ticketId} ${res.isResend ? 'reenviado' : 'registrado'} en base de datos (${res.emailsSentCount}/${res.recipients.length} correo(s) enviado(s) a Mesa de Ayuda IT).`,
       );
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
       queryClient.invalidateQueries({ queryKey: ['kpis'] });
+    },
+    onError: (err) => {
+      setItError(err instanceof Error ? err.message : 'No se pudo generar el ticket Helpdesk.');
+    },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: (payload: {
+      workflowId: string;
+      ticketId: string;
+      status: 'IN_PROGRESS' | 'RESOLVED';
+      notes: string;
+    }) =>
+      apiClient.updateItWorkflowStatus(payload.workflowId, {
+        status: payload.status,
+        notes: payload.notes,
+      }),
+    onSuccess: (_data, vars) => {
+      setItError(null);
+      setItMessage(
+        `Ticket ${vars.ticketId} actualizado a ${vars.status === 'RESOLVED' ? 'RESUELTO (Colaborador Activado)' : 'EN PROGRESO'}.`,
+      );
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      queryClient.invalidateQueries({ queryKey: ['kpis'] });
+    },
+    onError: (err) => {
+      setItError(err instanceof Error ? err.message : 'No se pudo actualizar el estado del ticket.');
     },
   });
 
@@ -76,7 +97,7 @@ export default function ItDashboardPage() {
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Consola Operativa IT</h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Cola sincronizada con ManageEngine ServiceDesk Plus vía BullMQ y webhooks.
+              Mesa de Ayuda IT: registro de tickets en base de datos y alertas directas por correo electrónico.
             </p>
           </div>
 
@@ -98,9 +119,14 @@ export default function ItDashboardPage() {
           </div>
         </div>
 
-        {webhookMessage && (
+        {itMessage && (
           <div className="rounded-md bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-            {webhookMessage}
+            {itMessage}
+          </div>
+        )}
+        {itError && (
+          <div className="rounded-md bg-rose-50 px-3.5 py-2.5 text-xs text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+            {itError}
           </div>
         )}
 
@@ -188,46 +214,70 @@ export default function ItDashboardPage() {
                       </div>
                     )}
 
-                    {wf.helpdeskTicketId && wf.currentStep !== 'COMPLETED' && (
-                      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-zinc-200/80 dark:border-zinc-800/80">
-                        <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-                          <Webhook className="h-3.5 w-3.5" />
-                          Simular webhook ServiceDesk Plus
-                        </span>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={webhookMutation.isPending}
-                            onClick={() =>
-                              webhookMutation.mutate({
-                                ticketId: wf.helpdeskTicketId!,
-                                status: 'IN_PROGRESS',
-                                notes: 'Técnico IT asignado. Configurando accesos y hardware.',
-                              })
-                            }
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            IN_PROGRESS
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="success"
-                            disabled={webhookMutation.isPending}
-                            onClick={() =>
-                              webhookMutation.mutate({
-                                ticketId: wf.helpdeskTicketId!,
-                                status: 'RESOLVED',
-                                notes: 'Aprovisionamiento completado al 100% desde ServiceDesk Plus.',
-                              })
-                            }
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            RESOLVED
-                          </Button>
+                    {wf.currentStep !== 'CANDIDATE_PENDING' &&
+                      wf.currentStep !== 'CANCELLED_NO_SHOW' &&
+                      wf.currentStep !== 'DSI_LEADER_APPROVAL' &&
+                      !(wf.flowType === 'ONBOARDING' && wf.currentStep === 'TH_REVIEW') && (
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-zinc-200/80 dark:border-zinc-800/80">
+                          <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+                            <Mail className="h-3.5 w-3.5" />
+                            Disparador Mesa de Ayuda IT (BD + Correo)
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {wf.currentStep !== 'COMPLETED' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={triggerTicketMutation.isPending}
+                                onClick={() => triggerTicketMutation.mutate(wf.id)}
+                              >
+                                <Ticket className="h-3.5 w-3.5" />
+                                {wf.helpdeskTicketId
+                                  ? 'Reenviar correo IT'
+                                  : 'Generar Ticket + Correo IT'}
+                              </Button>
+                            )}
+                            {wf.helpdeskTicketId && wf.currentStep !== 'COMPLETED' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={statusMutation.isPending}
+                                  onClick={() =>
+                                    statusMutation.mutate({
+                                      workflowId: wf.id,
+                                      ticketId: wf.helpdeskTicketId!,
+                                      status: 'IN_PROGRESS',
+                                      notes:
+                                        'Técnico IT asignado. Configurando accesos y hardware.',
+                                    })
+                                  }
+                                >
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                  En Progreso
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="success"
+                                  disabled={statusMutation.isPending}
+                                  onClick={() =>
+                                    statusMutation.mutate({
+                                      workflowId: wf.id,
+                                      ticketId: wf.helpdeskTicketId!,
+                                      status: 'RESOLVED',
+                                      notes:
+                                        'Aprovisionamiento completado al 100% por Mesa de Ayuda IT.',
+                                    })
+                                  }
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Resolver / Activar
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </CardContent>
                 </Card>
               );

@@ -17,6 +17,7 @@ import {
   FileUp,
   Lock,
   RefreshCw,
+  ShieldCheck,
   Video,
 } from 'lucide-react';
 import {
@@ -24,8 +25,13 @@ import {
   CANDIDATE_STAGE_LABELS,
   CandidateStage,
   detectMeetingPlatform,
+  HABEAS_DATA_LEGAL_REVIEW_NOTE,
+  HABEAS_DATA_POLICY_TEXT,
+  HABEAS_DATA_POLICY_VERSION,
   MEETING_PLATFORM_LABELS,
   MEETING_STATUS_LABELS,
+  SUPABASE_FREE_MAX_FILE_SIZE_BYTES,
+  SUPABASE_FREE_MAX_FILE_SIZE_LABEL,
   computeCandidatePortalVisibility,
 } from '@alliance-hcm/shared';
 import { apiClient, API_BASE, PublicCandidatePortalResponse } from '@/lib/api';
@@ -282,6 +288,8 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [demoConsentAccepted, setDemoConsentAccepted] = useState(false);
 
   // Estado interactivo del simulador UAT (solo para /candidato/demo)
   const [demoScenario, setDemoScenario] = useState<DemoScenario>('PRE_ONBOARDING');
@@ -322,6 +330,11 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
 
   const cvMutation = useMutation({
     mutationFn: async (file: File) => {
+      if (file.size > SUPABASE_FREE_MAX_FILE_SIZE_BYTES) {
+        throw new Error(
+          `El archivo "${file.name}" supera el límite de ${SUPABASE_FREE_MAX_FILE_SIZE_LABEL} para Supabase Storage (Free Tier).`,
+        );
+      }
       if (isDemoMode) {
         const localUrl = URL.createObjectURL(file);
         const nowIso = new Date().toISOString();
@@ -352,6 +365,25 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
     onError: (err) => {
       setUploadSuccess(null);
       setUploadError(err instanceof Error ? err.message : 'No se pudo subir tu hoja de vida.');
+    },
+  });
+
+  const acceptConsentMutation = useMutation({
+    mutationFn: async () => {
+      if (isDemoMode) {
+        setDemoConsentAccepted(true);
+        return {
+          accepted: true,
+          habeasDataAcceptedAt: new Date().toISOString(),
+          habeasDataPolicyVersion: HABEAS_DATA_POLICY_VERSION,
+        };
+      }
+      return apiClient.acceptCandidateConsent(token);
+    },
+    onSuccess: () => {
+      if (!isDemoMode) {
+        void queryClient.invalidateQueries({ queryKey: ['candidate-portal', token] });
+      }
     },
   });
 
@@ -498,6 +530,9 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
   }
 
   const proc = data.process;
+  const hasDataConsent = isDemoMode
+    ? demoConsentAccepted || demoScenario === 'HIRED_15D'
+    : Boolean(proc.habeasDataAcceptedAt);
   const currentIdx = STAGE_ORDER[proc.stage];
   const cvUrl = isDemoMode
     ? demoCv.objectUrl ?? ''
@@ -582,6 +617,69 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
         </div>
       )}
 
+      {/* Autorización previa Tratamiento de Datos (primera pantalla del candidato) */}
+      {!hasDataConsent ? (
+        <Card className="border-amber-200/80 dark:border-amber-900/60">
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                Autorización de Tratamiento de Datos Personales · Ley 1581 de 2012
+              </CardTitle>
+              <div className="flex items-center gap-1.5">
+                <Badge variant="warning">Validar con Jurídico</Badge>
+                <Badge variant="outline">{HABEAS_DATA_POLICY_VERSION}</Badge>
+              </div>
+            </div>
+            <CardDescription>
+              Antes de cargar tu hoja de vida o suministrar tus datos personales, lee y acepta
+              nuestra política de tratamiento de datos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="max-h-36 overflow-y-auto rounded border border-zinc-200/80 bg-zinc-50/70 p-3 text-xs leading-relaxed text-zinc-600 whitespace-pre-line dark:border-zinc-800/80 dark:bg-zinc-950/60 dark:text-zinc-300">
+              {HABEAS_DATA_POLICY_TEXT}
+            </div>
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              {HABEAS_DATA_LEGAL_REVIEW_NOTE}
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <label className="flex items-start gap-2.5 text-xs text-zinc-800 dark:text-zinc-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 accent-zinc-900 dark:accent-zinc-100"
+                  checked={consentChecked}
+                  onChange={(e) => setConsentChecked(e.target.checked)}
+                />
+                <span>
+                  Acepto el tratamiento de mis datos personales bajo la{' '}
+                  <strong>Ley 1581 de 2012</strong> para este proceso de selección.
+                </span>
+              </label>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!consentChecked || acceptConsentMutation.isPending}
+                onClick={() => acceptConsentMutation.mutate()}
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {acceptConsentMutation.isPending
+                  ? 'Registrando...'
+                  : 'Aceptar y habilitar carga'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200/80 bg-emerald-50/50 px-3.5 py-2 text-xs text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Autorización de Tratamiento de Datos Ley 1581 registrada (
+            {proc.habeasDataPolicyVersion ?? HABEAS_DATA_POLICY_VERSION}).
+          </span>
+        </div>
+      )}
+
       {/* Línea de progreso de selección a contratación */}
       <Card>
         <CardContent className="p-4">
@@ -626,29 +724,35 @@ export function CandidatePortalDashboard({ token }: { token: string }) {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3.5">
-              {proc.stage !== 'HIRED_APPROVED' && (
-                <label className="flex flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-zinc-300 p-4 text-center transition-colors hover:border-zinc-500 cursor-pointer dark:border-zinc-700 dark:hover:border-zinc-500">
-                  <FileUp className="h-5 w-5 text-zinc-500" />
-                  <span className="text-xs font-medium">
-                    {cvMutation.isPending
-                      ? 'Subiendo hoja de vida...'
-                      : proc.cv
-                        ? 'Reemplazar hoja de vida'
-                        : 'Adjuntar Hoja de Vida (máx. 10 MB)'}
-                  </span>
-                  <span className="text-[11px] text-zinc-500">PDF, Word o imagen</span>
-                  <input
-                    type="file"
-                    accept="application/pdf,image/*,.doc,.docx"
-                    className="hidden"
-                    disabled={cvMutation.isPending}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) cvMutation.mutate(file);
-                    }}
-                  />
-                </label>
-              )}
+              {proc.stage !== 'HIRED_APPROVED' &&
+                (hasDataConsent ? (
+                  <label className="flex flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-zinc-300 p-4 text-center transition-colors hover:border-zinc-500 cursor-pointer dark:border-zinc-700 dark:hover:border-zinc-500">
+                    <FileUp className="h-5 w-5 text-zinc-500" />
+                    <span className="text-xs font-medium">
+                      {cvMutation.isPending
+                        ? 'Subiendo hoja de vida...'
+                        : proc.cv
+                          ? 'Reemplazar hoja de vida'
+                          : 'Adjuntar Hoja de Vida (máx. 4 MB · Supabase Free Tier)'}
+                    </span>
+                    <span className="text-[11px] text-zinc-500">PDF, Word o imagen (hasta 4 MB)</span>
+                    <input
+                      type="file"
+                      accept="application/pdf,image/*,.doc,.docx"
+                      className="hidden"
+                      disabled={cvMutation.isPending}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) cvMutation.mutate(file);
+                      }}
+                    />
+                  </label>
+                ) : (
+                  <div className="rounded-md border border-dashed border-amber-300/80 bg-amber-50/50 p-4 text-center text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+                    Acepta primero la Autorización de Tratamiento de Datos en la parte superior para
+                    habilitar la carga de tu Hoja de Vida.
+                  </div>
+                ))}
 
               {uploadError && (
                 <div className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">

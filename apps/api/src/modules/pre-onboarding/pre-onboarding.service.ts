@@ -17,6 +17,7 @@ import {
   onboardingOffboardingWorkflows,
 } from '@alliance-hcm/database';
 import {
+  ALLOWED_DOCUMENT_MIME_TYPES,
   calculateAge,
   DocumentType,
   HABEAS_DATA_POLICY_TEXT,
@@ -293,6 +294,12 @@ export class PreOnboardingService {
   }) {
     const folder = `employees/${params.nationalId?.trim() || 'pending'}/${params.documentType.toLowerCase()}`;
     const fileName = decodeUploadedFileName(params.file.originalname);
+    this.storageService.validateFile({
+      buffer: params.file.buffer,
+      mimeType: params.file.mimetype,
+      fileName,
+      allowedMimeTypes: ALLOWED_DOCUMENT_MIME_TYPES,
+    });
     try {
       const uploaded = await this.storageService.uploadObject({
         folder,
@@ -519,10 +526,18 @@ export class PreOnboardingService {
       })
       .returning();
 
-    // Guardar referencias de documentos cargados en Supabase Storage S3 (reemplazando si es corrección)
+    // Guardar referencias de documentos cargados en Supabase Storage S3 (reemplazando y limpiando S3 si es corrección)
     if (dto.documents && dto.documents.length > 0) {
       if (isCorrection) {
+        const incomingKeys = new Set(dto.documents.map((d) => d.s3Key));
         for (const doc of dto.documents) {
+          const oldDocs = await this.database.db.query.employeeDocuments.findMany({
+            where: and(
+              eq(employeeDocuments.employeeId, employeeId),
+              eq(employeeDocuments.documentType, doc.documentType),
+            ),
+            columns: { s3Key: true },
+          });
           await this.database.db
             .delete(employeeDocuments)
             .where(
@@ -531,6 +546,11 @@ export class PreOnboardingService {
                 eq(employeeDocuments.documentType, doc.documentType),
               ),
             );
+          for (const oldDoc of oldDocs) {
+            if (oldDoc.s3Key && !incomingKeys.has(oldDoc.s3Key)) {
+              await this.storageService.deleteObject(oldDoc.s3Key);
+            }
+          }
         }
       }
       await this.database.db.insert(employeeDocuments).values(

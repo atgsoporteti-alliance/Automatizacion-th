@@ -18,9 +18,11 @@ import {
   Send,
   ShieldAlert,
   ShieldCheck,
+  Ticket,
 } from 'lucide-react';
 import {
   AREA_PROVISIONING_RULES,
+  canApproveDsiGate,
   OPERATIONAL_AREAS,
   OperationalArea,
   WORKFLOW_STEP_LABELS,
@@ -28,6 +30,7 @@ import {
 import { AppShell } from '@/components/app-shell';
 import { DocumentPreviewModal } from '@/components/document-preview-modal';
 import { apiClient, WorkflowRecord } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import {
   Badge,
   Button,
@@ -43,6 +46,7 @@ import {
 
 export default function ThDashboardPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedArea, setSelectedArea] = useState<OperationalArea>('CUSTOMER');
   const [jobTitle, setJobTitle] = useState('Especialista Operativo');
@@ -80,6 +84,7 @@ export default function ThDashboardPage() {
     objectUrl: string | null;
     loading: boolean;
     error: string | null;
+    allowDownload: boolean;
   }>({
     open: false,
     fileName: '',
@@ -87,9 +92,16 @@ export default function ThDashboardPage() {
     objectUrl: null,
     loading: false,
     error: null,
+    allowDownload: true,
   });
 
-  const openDocumentPreview = async (path: string, fileName: string, mimeType = 'application/pdf') => {
+  const openDocumentPreview = async (
+    path: string,
+    fileName: string,
+    mimeType = 'application/pdf',
+    options?: { allowDownload?: boolean },
+  ) => {
+    const allowDownload = options?.allowDownload ?? true;
     setPreviewState({
       open: true,
       fileName,
@@ -97,6 +109,7 @@ export default function ThDashboardPage() {
       objectUrl: null,
       loading: true,
       error: null,
+      allowDownload,
     });
     try {
       const res = await apiClient.fetchProtectedBlob(path);
@@ -107,6 +120,7 @@ export default function ThDashboardPage() {
         objectUrl: res.objectUrl,
         loading: false,
         error: null,
+        allowDownload,
       });
     } catch (err) {
       setPreviewState({
@@ -116,6 +130,7 @@ export default function ThDashboardPage() {
         objectUrl: null,
         loading: false,
         error: err instanceof Error ? err.message : 'No se pudo cargar el documento.',
+        allowDownload,
       });
     }
   };
@@ -200,7 +215,7 @@ export default function ThDashboardPage() {
   const approveDsiMutation = useMutation({
     mutationFn: (workflowId: string) =>
       apiClient.approveDsiWorkflow(workflowId, {
-        approverEmail: 'lider.dsi@alliance.com.co',
+        approverEmail: user?.email ?? 'lider.dsi@alliance.com.co',
         notes: 'Perfil VPN, Git y Hardware de Alto Rendimiento aprobados por Líder DSI.',
       }),
     onSuccess: () => {
@@ -209,6 +224,25 @@ export default function ThDashboardPage() {
       queryClient.invalidateQueries({ queryKey: ['kpis'] });
     },
   });
+
+  const triggerHelpdeskMutation = useMutation({
+    mutationFn: (workflowId: string) => apiClient.triggerHelpdeskTicket(workflowId),
+    onSuccess: (res) => {
+      setFeedback(
+        `Ticket IT ${res.ticketId} ${res.isResend ? 'reenviado' : 'registrado'} en base de datos (${res.emailsSentCount}/${res.recipients.length} correo(s) enviado(s) a Mesa de Ayuda IT).`,
+      );
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      queryClient.invalidateQueries({ queryKey: ['kpis'] });
+    },
+    onError: (err) => {
+      setFeedback(err instanceof Error ? err.message : 'No se pudo generar el ticket Helpdesk.');
+    },
+  });
+
+  const canDsiApprove = canApproveDsiGate(user);
+  const canCancelNoShow = user?.role === 'TH_ADMIN' || user?.role === 'SUPER_ADMIN';
+  const canTriggerHelpdesk =
+    user?.role === 'TH_ANALYST' || user?.role === 'TH_ADMIN' || user?.role === 'SUPER_ADMIN';
 
   const cancelNoShowMutation = useMutation({
     mutationFn: (workflowId: string) =>
@@ -588,25 +622,12 @@ export default function ThDashboardPage() {
                                   `/employees/${selectedWorkflow.employee.id}/signature/content`,
                                   `firma-ley1581-${selectedWorkflow.employee.nationalId}.png`,
                                   'image/png',
+                                  { allowDownload: false },
                                 )
                               }
                             >
                               <Eye className="h-3.5 w-3.5" />
-                              Firma Ley 1581
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                void downloadDocument(
-                                  `/employees/${selectedWorkflow.employee.id}/signature/content?download=1`,
-                                  `firma-ley1581-${selectedWorkflow.employee.nationalId}.png`,
-                                )
-                              }
-                              title="Descargar firma"
-                            >
-                              <Download className="h-3.5 w-3.5" />
+                              Ver Firma Ley 1581
                             </Button>
                           </div>
                         )}
@@ -772,17 +793,39 @@ export default function ThDashboardPage() {
                           Aprobar y disparar a IT
                         </Button>
 
-                        {selectedWorkflow.currentStep === 'DSI_LEADER_APPROVAL' && (
-                          <Button
-                            size="sm"
-                            variant="success"
-                            onClick={() => approveDsiMutation.mutate(selectedWorkflow.id)}
-                            disabled={approveDsiMutation.isPending}
-                          >
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            Aprobar Líder DSI
-                          </Button>
-                        )}
+                        {selectedWorkflow.currentStep === 'DSI_LEADER_APPROVAL' &&
+                          (canDsiApprove ? (
+                            <Button
+                              size="sm"
+                              variant="success"
+                              onClick={() => approveDsiMutation.mutate(selectedWorkflow.id)}
+                              disabled={approveDsiMutation.isPending}
+                            >
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                              Aprobar Líder DSI
+                            </Button>
+                          ) : (
+                            <Badge variant="warning">
+                              Pendiente aprobación Líder DSI (/dashboard/team)
+                            </Badge>
+                          ))}
+
+                        {canTriggerHelpdesk &&
+                          (selectedWorkflow.currentStep === 'HELPDESK_TICKET_CREATED' ||
+                            selectedWorkflow.currentStep === 'IT_PROVISIONING') && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => triggerHelpdeskMutation.mutate(selectedWorkflow.id)}
+                              disabled={triggerHelpdeskMutation.isPending}
+                            >
+                              <Ticket className="h-3.5 w-3.5" />
+                              {selectedWorkflow.helpdeskTicketId
+                                ? `Reenviar correo Ticket (${selectedWorkflow.helpdeskTicketId})`
+                                : 'Generar Ticket IT'}
+                            </Button>
+                          )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
@@ -795,16 +838,18 @@ export default function ThDashboardPage() {
                           <RotateCcw className="h-3.5 w-3.5" />
                           Devolver corrección
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/50"
-                          onClick={() => cancelNoShowMutation.mutate(selectedWorkflow.id)}
-                          disabled={cancelNoShowMutation.isPending}
-                        >
-                          <Ban className="h-3.5 w-3.5" />
-                          No-Show
-                        </Button>
+                        {canCancelNoShow && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/50"
+                            onClick={() => cancelNoShowMutation.mutate(selectedWorkflow.id)}
+                            disabled={cancelNoShowMutation.isPending}
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                            No-Show
+                          </Button>
+                        )}
                       </div>
                     </div>
 
@@ -909,6 +954,7 @@ export default function ThDashboardPage() {
         objectUrl={previewState.objectUrl}
         loading={previewState.loading}
         error={previewState.error}
+        allowDownload={previewState.allowDownload}
         onClose={() => {
           if (previewState.objectUrl) {
             URL.revokeObjectURL(previewState.objectUrl);

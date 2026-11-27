@@ -21,12 +21,15 @@ import {
   calculateAge,
   EDUCATION_LEVEL_LABELS,
   EDUCATION_LEVELS,
+  HABEAS_DATA_LEGAL_REVIEW_NOTE,
   HABEAS_DATA_POLICY_TEXT,
   HABEAS_DATA_POLICY_VERSION,
   MARITAL_STATUS_LABELS,
   MARITAL_STATUSES,
   SHIRT_SIZES,
   ShirtSize,
+  SUPABASE_FREE_MAX_FILE_SIZE_BYTES,
+  SUPABASE_FREE_MAX_FILE_SIZE_LABEL,
   UploadedDocumentInput,
   wizardStep1Schema,
   wizardStep2Schema,
@@ -86,11 +89,11 @@ interface WizardFormValues {
 }
 
 const STEPS = [
-  { number: 1, title: 'Identificación y Datos Personales' },
+  { number: 1, title: 'Tratamiento de Datos e Identificación' },
   { number: 2, title: 'Ubicación, Contacto y Dotación' },
   { number: 3, title: 'Formación Académica' },
   { number: 4, title: 'Seguridad Social y Banco' },
-  { number: 5, title: 'Emergencia, Ley 1581 y Firma OTP' },
+  { number: 5, title: 'Emergencia, Firma Manuscrita y OTP' },
 ];
 
 const DRAFT_KEY_PREFIX = 'alliance-hcm-preonboarding-draft-';
@@ -339,6 +342,13 @@ export function PreOnboardingWizard({ token }: { token: string }) {
     documentType: UploadedDocumentInput['documentType'],
   ) => {
     if (!file) return;
+    if (file.size > SUPABASE_FREE_MAX_FILE_SIZE_BYTES) {
+      setUploadErrors((prev) => ({
+        ...prev,
+        [documentType]: `El archivo "${file.name}" supera el límite de ${SUPABASE_FREE_MAX_FILE_SIZE_LABEL} para Supabase Storage (Free Tier).`,
+      }));
+      return;
+    }
     setUploadingDoc(documentType);
     setUploadErrors((prev) => {
       const next = { ...prev };
@@ -820,9 +830,51 @@ export function PreOnboardingWizard({ token }: { token: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-5 space-y-5">
-            {/* PASO 1 */}
+            {/* PASO 1: Consentimiento Ley 1581 en Primera Página + Identificación */}
             {step === 1 && (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-5">
+                <div className="rounded-md border border-zinc-200/80 bg-zinc-50/70 p-4 space-y-3 dark:border-zinc-800/80 dark:bg-zinc-950/60">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                      <ShieldCheck className="h-4 w-4 text-zinc-500" />
+                      Autorización Previa de Tratamiento de Datos · Ley 1581 de 2012
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="warning">Validar con Jurídico</Badge>
+                      <Badge variant="outline">{HABEAS_DATA_POLICY_VERSION}</Badge>
+                    </div>
+                  </div>
+                  <div className="max-h-36 overflow-y-auto rounded border border-zinc-200/80 bg-white p-3 text-xs leading-relaxed text-zinc-600 whitespace-pre-line dark:border-zinc-800/80 dark:bg-[#0f0f12] dark:text-zinc-300">
+                    {HABEAS_DATA_POLICY_TEXT}
+                  </div>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {HABEAS_DATA_LEGAL_REVIEW_NOTE}
+                  </p>
+                  <label className="flex items-start gap-2.5 text-xs text-zinc-800 dark:text-zinc-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 accent-zinc-900 dark:accent-zinc-100"
+                      {...form.register('habeasDataAccepted')}
+                    />
+                    <span>
+                      Acepto de manera previa la Política de Tratamiento de Datos Personales bajo la{' '}
+                      <strong>Ley 1581 de 2012</strong> para registrar mis datos personales y firmar
+                      electrónicamente al finalizar.
+                    </span>
+                  </label>
+                </div>
+
+                {!watchedValues.habeasDataAccepted && (
+                  <div className="rounded-md border border-amber-200/80 bg-amber-50/60 px-3.5 py-2.5 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+                    Marca la autorización de tratamiento de datos arriba para habilitar el
+                    diligenciamiento de tus datos personales.
+                  </div>
+                )}
+
+                <fieldset
+                  disabled={!watchedValues.habeasDataAccepted}
+                  className={`grid gap-4 sm:grid-cols-2 ${!watchedValues.habeasDataAccepted ? 'opacity-50' : ''}`}
+                >
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label>1. Nombre completo *</Label>
                   <Input placeholder="Ej: Laura Valentina Gómez" {...form.register('fullName', { required: true })} />
@@ -894,6 +946,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                     ))}
                   </Select>
                 </div>
+                </fieldset>
               </div>
             )}
 
@@ -1009,7 +1062,7 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                               ? 'Subiendo a Supabase Storage (alliance)...'
                               : uploaded
                                 ? 'Haz clic para reemplazar archivo'
-                                : 'Haz clic para adjuntar PDF o imagen (máx. 10 MB)'}
+                                : 'Haz clic para adjuntar PDF o imagen (máx. 4 MB · Supabase Free Tier)'}
                           </span>
                           <input
                             type="file"
@@ -1111,30 +1164,13 @@ export function PreOnboardingWizard({ token }: { token: string }) {
                   </div>
                 </div>
 
-                {/* Caja Legal Ley 1581 */}
-                <div className="rounded-md border border-zinc-200/80 bg-zinc-50/60 p-4 space-y-3 dark:border-zinc-800/80 dark:bg-zinc-950/60">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                      <ShieldCheck className="h-4 w-4 text-zinc-500" />
-                      Cumplimiento Ley 1581 de 2012 (Habeas Data)
-                    </span>
-                    <Badge variant="outline">{HABEAS_DATA_POLICY_VERSION}</Badge>
-                  </div>
-                  <div className="max-h-32 overflow-y-auto rounded border border-zinc-200/80 bg-white p-3 text-xs leading-relaxed text-zinc-600 whitespace-pre-line dark:border-zinc-800/80 dark:bg-[#0f0f12] dark:text-zinc-300">
-                    {HABEAS_DATA_POLICY_TEXT}
-                  </div>
-                  <label className="flex items-start gap-2.5 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 h-4 w-4 accent-zinc-900 dark:accent-zinc-100"
-                      {...form.register('habeasDataAccepted')}
-                    />
-                    <span>
-                      Acepto la Política de Tratamiento de Datos Personales bajo la{' '}
-                      <strong>Ley 1581 de 2012</strong> y autorizo la captura de mi firma electrónica
-                      con sello SHA-256, IP y marca de tiempo.
-                    </span>
-                  </label>
+                {/* Resumen consentimiento aceptado en Paso 1 */}
+                <div className="rounded-md border border-emerald-200/80 bg-emerald-50/60 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <ShieldCheck className="h-4 w-4" />
+                    Tratamiento de Datos Ley 1581 aceptado en el Paso 1 ({HABEAS_DATA_POLICY_VERSION})
+                  </span>
+                  <Badge variant="outline">Sello SHA-256 + IP al firmar</Badge>
                 </div>
 
                 {/* Canvas Firma Digital */}

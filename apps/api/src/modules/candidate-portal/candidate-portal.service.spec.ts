@@ -9,7 +9,12 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
 
   function makeService(
     mockProc: Record<string, unknown>,
-    storageMock = { uploadObject: jest.fn(), getObjectBuffer: jest.fn() },
+    storageMock = {
+      uploadObject: jest.fn(),
+      getObjectBuffer: jest.fn(),
+      validateFile: jest.fn(),
+      deleteObject: jest.fn().mockResolvedValue(true),
+    },
     options?: {
       meeting?: Record<string, unknown> | null;
       mailService?: { sendCandidateMeetingEmail: jest.Mock };
@@ -130,8 +135,8 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
     const pdfBytes = Buffer.from('%PDF-1.4\n%test\n');
     const storageMock = {
       uploadObject: jest.fn().mockResolvedValue({
-        s3Key: 'candidates/proc-1/cv/doc.pdf',
-        publicUrl: 'https://cdn.example/doc.pdf',
+        s3Key: 'candidates/proc-1/cv/doc-new.pdf',
+        publicUrl: 'https://cdn.example/doc-new.pdf',
         mimeType: 'application/pdf',
         fileSize: pdfBytes.length,
       }),
@@ -139,6 +144,8 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
         buffer: pdfBytes,
         contentType: 'application/pdf',
       }),
+      validateFile: jest.fn(),
+      deleteObject: jest.fn().mockResolvedValue(true),
     };
 
     const mangledName = Buffer.from('Alliance HCM – Core TH.pdf', 'utf8').toString('latin1');
@@ -147,6 +154,8 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
       accessToken: 'tok-123',
       candidateEmail: 'laura@gmail.com',
       stage: 'CV_UPLOADED',
+      habeasDataAcceptedAt: createdAt,
+      habeasDataPolicyVersion: 'ALLIANCE-HD-2026-v1.0',
       cvS3Key: 'candidates/proc-1/cv/doc.pdf',
       cvFileName: mangledName,
       cvMimeType: 'application/pdf',
@@ -180,6 +189,35 @@ describe('CandidatePortalService — Visibilidad temporal de 15 días post-contr
     expect(storageMock.uploadObject).toHaveBeenCalledWith(
       expect.objectContaining({ fileName: 'Alliance HCM – Core TH.pdf' }),
     );
+    expect(storageMock.deleteObject).toHaveBeenCalledWith('candidates/proc-1/cv/doc.pdf');
+  });
+
+  it('exige autorización previa Ley 1581 antes de subir CV en el portal público', async () => {
+    const procWithoutConsent = {
+      id: 'proc-2',
+      accessToken: 'tok-no-consent',
+      candidateEmail: 'nuevo@gmail.com',
+      stage: 'REGISTERED',
+      habeasDataAcceptedAt: null,
+      habeasDataPolicyVersion: null,
+      cvS3Key: null,
+      createdAt,
+      hiringApprovedAt: null,
+    };
+    const service = makeService(procWithoutConsent);
+
+    await expect(
+      service.uploadCandidateCv('tok-no-consent', {
+        originalname: 'cv.pdf',
+        mimetype: 'application/pdf',
+        size: 100,
+        buffer: Buffer.from('%PDF-1.4'),
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    const consented = await service.acceptPublicConsent('tok-no-consent', createdAt);
+    expect(consented.accepted).toBe(true);
+    expect(consented.habeasDataAcceptedAt).toEqual(createdAt);
   });
 
   it('normaliza enlaces de Microsoft Teams y Google Meet al crear y actualizar reuniones', async () => {

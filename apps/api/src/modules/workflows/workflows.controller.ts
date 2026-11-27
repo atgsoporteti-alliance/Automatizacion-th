@@ -14,6 +14,8 @@ import {
   ApproveThWorkflowDto,
   CancelNoShowDto,
   ReturnToCandidateDto,
+  TriggerHelpdeskDto,
+  UpdateItStatusDto,
 } from './dto/workflow-actions.dto';
 
 @ApiTags('Workflows')
@@ -54,8 +56,9 @@ export class WorkflowsController {
     @Param('id') id: string,
     @Body() dto: ApproveThWorkflowDto,
     @CurrentUser() user: AuthenticatedUserProfile,
+    @Headers('origin') origin?: string,
   ) {
-    return this.workflowsService.approveByTh(id, dto, user.id);
+    return this.workflowsService.approveByTh(id, dto, user.id, origin);
   }
 
   @Post(':id/approve-dsi')
@@ -67,8 +70,9 @@ export class WorkflowsController {
     @Param('id') id: string,
     @Body() dto: ApproveDsiWorkflowDto,
     @CurrentUser() user: AuthenticatedUserProfile,
+    @Headers('origin') origin?: string,
   ) {
-    return this.workflowsService.approveByDsiLeader(id, dto, user);
+    return this.workflowsService.approveByDsiLeader(id, dto, user, origin);
   }
 
   @Post(':id/cancel-no-show')
@@ -97,5 +101,34 @@ export class WorkflowsController {
     @Headers('origin') origin?: string,
   ) {
     return this.workflowsService.returnToCandidate(id, dto, user.id, origin);
+  }
+
+  @Post(':id/trigger-helpdesk')
+  @Roles('TH_ANALYST', 'TH_ADMIN', 'IT_SUPPORT', 'SUPER_ADMIN')
+  @ApiOperation({
+    summary:
+      'Disparador manual de ticket Helpdesk: registra ticket en base de datos y envía correo a Mesa de Ayuda IT',
+  })
+  triggerHelpdeskTicket(
+    @Param('id') id: string,
+    @Body() dto: TriggerHelpdeskDto,
+    @CurrentUser() user: AuthenticatedUserProfile,
+    @Headers('origin') origin?: string,
+  ) {
+    return this.workflowsService.triggerHelpdeskTicket(id, user, dto, origin);
+  }
+
+  @Post(':id/it-status')
+  @Roles('IT_SUPPORT', 'SUPER_ADMIN')
+  @ApiOperation({
+    summary:
+      'Actualizar estado de atención de ticket IT en base de datos (OPEN / IN_PROGRESS / RESOLVED)',
+  })
+  updateItStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateItStatusDto,
+    @CurrentUser() user: AuthenticatedUserProfile,
+  ) {
+    return this.workflowsService.updateItStatus(id, user, dto);
   }
 }

@@ -60,12 +60,21 @@ export const SENSITIVE_EMPLOYEE_FIELDS = [
 
 export type Permission =
   | 'pre_onboarding:submit'
+  | 'candidate_portal:manage'
+  | 'interviews:manage'
   | 'magic_link:generate'
   | 'employees:read_full'
   | 'employees:read_technical'
   | 'workflow:approve_th'
   | 'workflow:approve_dsi'
   | 'workflow:cancel_no_show'
+  | 'helpdesk:manage'
+  | 'time_requests:read'
+  | 'time_requests:review_leader'
+  | 'time_requests:approve_th'
+  | 'expirations:read_area'
+  | 'expirations:manage_license'
+  | 'expirations:manage_all'
   | 'offboarding:initiate_standard'
   | 'offboarding:initiate_critical'
   | 'clearance:approve_it'
@@ -78,27 +87,52 @@ export type Permission =
 export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
   CANDIDATE: ['pre_onboarding:submit'],
   TH_ANALYST: [
+    'candidate_portal:manage',
+    'interviews:manage',
     'magic_link:generate',
     'employees:read_full',
     'workflow:approve_th',
+    'helpdesk:manage',
+    'time_requests:read',
+    'time_requests:approve_th',
+    'expirations:read_area',
+    'expirations:manage_all',
     'offboarding:initiate_standard',
   ],
   TH_ADMIN: [
+    'candidate_portal:manage',
+    'interviews:manage',
     'magic_link:generate',
     'employees:read_full',
     'workflow:approve_th',
     'workflow:cancel_no_show',
+    'helpdesk:manage',
+    'time_requests:read',
+    'time_requests:approve_th',
+    'expirations:read_area',
+    'expirations:manage_all',
     'offboarding:initiate_standard',
     'offboarding:initiate_critical',
+    'clearance:approve_it',
+    'clearance:approve_finance',
+    'clearance:approve_fixed_assets',
+    'clearance:approve_manager',
     'admin:view_audit_logs',
   ],
   AREA_LEADER: [
+    'interviews:manage',
     'employees:read_technical',
     'workflow:approve_dsi',
+    'time_requests:read',
+    'time_requests:review_leader',
+    'expirations:read_area',
     'clearance:approve_manager',
   ],
   IT_SUPPORT: [
     'employees:read_technical',
+    'helpdesk:manage',
+    'expirations:read_area',
+    'expirations:manage_license',
     'clearance:approve_it',
   ],
   CLEARANCE_APPROVER: [
@@ -106,12 +140,21 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'clearance:approve_fixed_assets',
   ],
   SUPER_ADMIN: [
+    'candidate_portal:manage',
+    'interviews:manage',
     'magic_link:generate',
     'employees:read_full',
     'employees:read_technical',
     'workflow:approve_th',
     'workflow:approve_dsi',
     'workflow:cancel_no_show',
+    'helpdesk:manage',
+    'time_requests:read',
+    'time_requests:review_leader',
+    'time_requests:approve_th',
+    'expirations:read_area',
+    'expirations:manage_license',
+    'expirations:manage_all',
     'offboarding:initiate_standard',
     'offboarding:initiate_critical',
     'clearance:approve_it',
@@ -163,4 +206,13 @@ export function canAccessOperationalArea(
   if (!userArea || userArea === 'ALL') return true;
   if (!targetArea) return true;
   return userArea === targetArea;
+}
+
+export function canApproveDsiGate(user?: {
+  role: InternalRole | SystemRole;
+  operationalArea?: UserOperationalArea | null;
+} | null): boolean {
+  if (!user) return false;
+  if (user.role === 'SUPER_ADMIN') return true;
+  return user.role === 'AREA_LEADER' && user.operationalArea === 'DSI';
 }

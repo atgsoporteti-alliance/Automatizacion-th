@@ -15,7 +15,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { AuthenticatedUserProfile } from '@alliance-hcm/shared';
+import {
+  AuthenticatedUserProfile,
+  SUPABASE_FREE_MAX_FILE_SIZE_BYTES,
+} from '@alliance-hcm/shared';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -212,11 +215,20 @@ export class CandidatePortalController {
     return this.candidatePortalService.getPublicPortalByToken(token, origin);
   }
 
+  @Post('public/:token/consent')
+  @Public()
+  @ApiOperation({
+    summary: 'Registrar autorización previa de Tratamiento de Datos (Ley 1581) en Portal del Candidato',
+  })
+  acceptPublicConsent(@Param('token') token: string) {
+    return this.candidatePortalService.acceptPublicConsent(token);
+  }
+
   @Post('public/:token/cv')
   @Public()
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: SUPABASE_FREE_MAX_FILE_SIZE_BYTES },
     }),
   )
   @ApiConsumes('multipart/form-data')
@@ -225,18 +237,24 @@ export class CandidatePortalController {
       type: 'object',
       properties: {
         file: { type: 'string', format: 'binary' },
+        acceptConsent: { type: 'string', example: 'true' },
       },
     },
   })
-  @ApiOperation({ summary: 'Subir Hoja de Vida (CV) al bucket S3 (alliance) para selección' })
+  @ApiOperation({
+    summary: 'Subir Hoja de Vida (CV) al bucket S3 (máx. 4 MB · Free Tier Supabase)',
+  })
   uploadCv(
     @Param('token') token: string,
     @UploadedFile() file: UploadedMulterFile | undefined,
+    @Body('acceptConsent') acceptConsent?: string,
   ) {
     if (!file) {
       throw new BadRequestException('Debes adjuntar un archivo válido para tu hoja de vida.');
     }
-    return this.candidatePortalService.uploadCandidateCv(token, file);
+    return this.candidatePortalService.uploadCandidateCv(token, file, new Date(), {
+      acceptConsent: acceptConsent === 'true' || acceptConsent === '1',
+    });
   }
 
   @Get('public/:token/cv/content')

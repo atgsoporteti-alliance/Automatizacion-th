@@ -13,13 +13,14 @@ export interface HelpdeskTicketPayload {
   category: string;
   provisioningItems: string[];
   notes?: string;
+  requestOrigin?: string;
 }
 
 export interface HelpdeskTicketResponse {
   ticketId: string;
   status: string;
   externalUrl: string;
-  provider: 'MANAGEENGINE_SDP' | 'MOCK_SDP';
+  provider: 'MANAGEENGINE_SDP' | 'MOCK_SDP' | 'INTERNAL_IT_EMAIL';
   createdAt: string;
 }
 
