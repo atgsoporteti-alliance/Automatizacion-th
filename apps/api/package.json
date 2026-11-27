@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsc -p tsconfig.json && concurrently -k \"tsc -p tsconfig.json --watch --preserveWatchOutput\" \"node --watch dist/main.js\"",
+    "dev": "node scripts/dev-watch.js",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
     "start:prod": "node dist/main.js",

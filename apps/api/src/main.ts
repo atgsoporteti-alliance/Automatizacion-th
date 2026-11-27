@@ -8,6 +8,7 @@ import { isAllowedFrontendOrigin } from './common/utils/web-url.util';
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
 
   app.setGlobalPrefix('api');
 
