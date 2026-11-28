@@ -15,7 +15,8 @@ describe('ContractsService', () => {
 
   it('filtra contratos por nombre, rango de fechas, tipo y estado efectivo', async () => {
     const dbMock = {
-      query: {
+      db: {
+        query: {
         employeeContracts: {
           findMany: jest.fn().mockResolvedValue([
             {
@@ -111,6 +112,7 @@ describe('ContractsService', () => {
           findMany: jest.fn().mockResolvedValue([]),
         },
       },
+      },
     };
 
     const service = new ContractsService(dbMock as never, { record: jest.fn() } as never);
@@ -136,15 +138,17 @@ describe('ContractsService', () => {
 
   it('rechaza crear un contrato cuando endsAt es anterior a startsAt', async () => {
     const dbMock = {
-      query: {
-        employees: {
-          findFirst: jest.fn().mockResolvedValue({
-            id: 'emp-1',
-            fullName: 'Camila',
-            operationalArea: 'CUSTOMER',
-            jobTitle: 'Especialista',
-            costCenter: 'CC-1',
-          }),
+      db: {
+        query: {
+          employees: {
+            findFirst: jest.fn().mockResolvedValue({
+              id: 'emp-1',
+              fullName: 'Camila',
+              operationalArea: 'CUSTOMER',
+              jobTitle: 'Especialista',
+              costCenter: 'CC-1',
+            }),
+          },
         },
       },
     };
@@ -190,7 +194,7 @@ describe('ContractsService', () => {
     };
 
     const service = new ContractsService(
-      { query: { employeeContracts: { findFirst: findFirstMock } } } as never,
+      { db: { query: { employeeContracts: { findFirst: findFirstMock } } } } as never,
       { record: jest.fn() } as never,
       storageMock as never,
     );
