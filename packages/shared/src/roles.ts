@@ -84,7 +84,8 @@ export type Permission =
   | 'clearance:approve_fixed_assets'
   | 'clearance:approve_manager'
   | 'admin:manage_users'
-  | 'admin:view_audit_logs';
+  | 'admin:view_audit_logs'
+  | 'admin:view_health';
 
 export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
   CANDIDATE: ['pre_onboarding:submit'],
@@ -124,6 +125,7 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'clearance:approve_fixed_assets',
     'clearance:approve_manager',
     'admin:view_audit_logs',
+    'admin:view_health',
   ],
   AREA_LEADER: [
     'interviews:manage',
@@ -140,6 +142,7 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'expirations:read_area',
     'expirations:manage_license',
     'clearance:approve_it',
+    'admin:view_health',
   ],
   CLEARANCE_APPROVER: [
     'clearance:approve_finance',
@@ -171,6 +174,7 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'clearance:approve_manager',
     'admin:manage_users',
     'admin:view_audit_logs',
+    'admin:view_health',
   ],
 };
 

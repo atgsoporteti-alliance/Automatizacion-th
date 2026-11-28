@@ -340,4 +340,101 @@ export class HelpdeskService {
       notes: dto.notes,
     });
   }
+
+  async getHealthSummary(): Promise<{
+    queue: {
+      status: 'UP' | 'DEGRADED';
+      name: string;
+      connected: boolean;
+      mode: 'BULLMQ_REDIS' | 'DIRECT_FALLBACK';
+      redisHost: string;
+      redisPort: number;
+      latencyMs: number;
+      counts: Record<string, number> | null;
+      message: string;
+    };
+    helpdesk: {
+      status: 'UP' | 'DEGRADED';
+      mode: 'MANAGEENGINE_SDP' | 'INTERNAL_IT_EMAIL' | 'MOCK';
+      externalApiEnabled: boolean;
+      mockEnabled: boolean;
+      serviceDeskUrlConfigured: boolean;
+      itRecipientsCount: number;
+      itRecipients: string[];
+      message: string;
+    };
+  }> {
+    const start = Date.now();
+    const redisHost = this.config?.get<string>('REDIS_HOST', 'localhost') ?? 'localhost';
+    const redisPort = Number(this.config?.get<string>('REDIS_PORT', '6379') ?? '6379');
+
+    let redisConnected = false;
+    let counts: Record<string, number> | null = null;
+    let queueError: string | null = null;
+
+    if (this.queue && typeof this.queue.getJobCounts === 'function') {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const probe = this.queue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
+        const timeout = new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new Error('Timeout conectando con Redis/BullMQ (2.5s)')), 2500);
+        });
+        counts = (await Promise.race([probe, timeout])) as Record<string, number>;
+        redisConnected = true;
+      } catch (err) {
+        queueError = err instanceof Error ? err.message : String(err);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    } else {
+      queueError = 'Cola BullMQ no inicializada';
+    }
+
+    const mockEnabled = (this.config?.get<string>('HELPDESK_MOCK_ENABLED', 'true') ?? 'true') === 'true';
+    const externalFlag =
+      (this.config?.get<string>('HELPDESK_EXTERNAL_API_ENABLED', 'false') ?? 'false') === 'true';
+    const externalApiEnabled = !mockEnabled && externalFlag;
+    const serviceDeskUrl = this.config?.get<string>('SERVICEDESK_API_URL', '') ?? '';
+    const serviceDeskKey = this.config?.get<string>('SERVICEDESK_API_KEY', '') ?? '';
+    const serviceDeskUrlConfigured = Boolean(
+      serviceDeskUrl && !serviceDeskUrl.includes('servicedesk.alliance.local') && serviceDeskKey,
+    );
+
+    const itRecipients = await this.resolveItRecipients().catch(() => []);
+    const adapterMode: 'MANAGEENGINE_SDP' | 'INTERNAL_IT_EMAIL' | 'MOCK' = externalApiEnabled
+      ? 'MANAGEENGINE_SDP'
+      : mockEnabled
+        ? 'MOCK'
+        : 'INTERNAL_IT_EMAIL';
+
+    return {
+      queue: {
+        status: redisConnected ? 'UP' : 'DEGRADED',
+        name: HELPDESK_QUEUE_NAME,
+        connected: redisConnected,
+        mode: redisConnected ? 'BULLMQ_REDIS' : 'DIRECT_FALLBACK',
+        redisHost,
+        redisPort,
+        latencyMs: Date.now() - start,
+        counts,
+        message: redisConnected
+          ? `Redis y worker BullMQ (${HELPDESK_QUEUE_NAME}) conectados.`
+          : `Redis sin conexión (${queueError ?? 'desconectado'}); los tickets se crean vía DIRECT_FALLBACK.`,
+      },
+      helpdesk: {
+        status: itRecipients.length > 0 || externalApiEnabled ? 'UP' : 'DEGRADED',
+        mode: adapterMode,
+        externalApiEnabled,
+        mockEnabled,
+        serviceDeskUrlConfigured,
+        itRecipientsCount: itRecipients.length,
+        itRecipients,
+        message: externalApiEnabled
+          ? 'Integración externa con ManageEngine ServiceDesk Plus habilitada.'
+          : itRecipients.length > 0
+            ? `Tickets registrados en BD (IT-YYYY-XXXX) con aviso a ${itRecipients.length} destinatario(s) IT.`
+            : 'Sin destinatarios IT configurados (HELPDESK_IT_EMAILS / perfiles IT_SUPPORT).',
+      },
+    };
+  }
 }

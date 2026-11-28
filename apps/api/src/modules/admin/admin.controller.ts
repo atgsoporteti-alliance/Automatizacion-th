@@ -58,4 +58,14 @@ export class AdminController {
   ) {
     return this.adminService.findAuditLogs({ actorId, action, entity });
   }
+
+  @Get('health')
+  @Roles('SUPER_ADMIN', 'IT_SUPPORT', 'TH_ADMIN')
+  @ApiOperation({
+    summary:
+      'Diagnóstico integral de salud de la plataforma (PostgreSQL, Storage S3, Correo/Relay, BullMQ/Redis, Helpdesk, Auth y métricas operativas)',
+  })
+  getPlatformHealth() {
+    return this.adminService.getPlatformHealth();
+  }
 }

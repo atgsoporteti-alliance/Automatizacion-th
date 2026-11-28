@@ -103,6 +103,55 @@ export class MailService {
     );
   }
 
+  getHealthSummary(): {
+    status: 'UP' | 'DEGRADED';
+    configured: boolean;
+    smtpConfigured: boolean;
+    smtpHost: string;
+    smtpPort: number;
+    hasSmtpUser: boolean;
+    relayConfigured: boolean;
+    relayHost: string | null;
+    preferRelayFirst: boolean;
+    modeLabel: string;
+  } {
+    const smtpHost = this.config.get<string>('SMTP_HOST', 'smtp.gmail.com').trim();
+    const smtpPort = Number(this.config.get<string>('SMTP_PORT', '465'));
+    const relayConfigured = Boolean(this.relayUrl && this.relaySecret);
+    let relayHost: string | null = null;
+    if (this.relayUrl) {
+      try {
+        relayHost = new URL(this.relayUrl).host;
+      } catch {
+        relayHost = this.relayUrl;
+      }
+    }
+
+    const configured = this.isConfigured();
+    const modeLabel = !configured
+      ? 'Inactivo (sin credenciales SMTP ni Relay HMAC)'
+      : this.preferRelayFirst
+        ? `HTTPS Relay prioritario (${relayHost}) + respaldo SMTP`
+        : this.configured && relayConfigured
+          ? `SMTP directo (${smtpHost}:${smtpPort}) + respaldo HTTPS Relay`
+          : relayConfigured
+            ? `Solo HTTPS Relay (${relayHost})`
+            : `Solo SMTP directo (${smtpHost}:${smtpPort})`;
+
+    return {
+      status: configured ? 'UP' : 'DEGRADED',
+      configured,
+      smtpConfigured: this.configured,
+      smtpHost,
+      smtpPort,
+      hasSmtpUser: Boolean(this.smtpUser),
+      relayConfigured,
+      relayHost,
+      preferRelayFirst: this.preferRelayFirst,
+      modeLabel,
+    };
+  }
+
   private async sendViaDirectSmtp(input: SendEmailInput): Promise<EmailDispatchResult> {
     if (!this.transporter || !this.configured) {
       return { sent: false, reason: 'SMTP no configurado' };

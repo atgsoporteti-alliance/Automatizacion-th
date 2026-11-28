@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import {
+  Activity,
   Award,
   Building2,
   CalendarClock,
@@ -143,6 +144,12 @@ const NAV_GROUPS: NavGroup[] = [
         icon: FileSearch,
         allowedRoles: ['SUPER_ADMIN', 'TH_ADMIN'],
       },
+      {
+        href: '/dashboard/admin/health',
+        label: 'Salud Plataforma',
+        icon: Activity,
+        allowedRoles: ['SUPER_ADMIN', 'IT_SUPPORT', 'TH_ADMIN'],
+      },
     ],
   },
 ];
@@ -159,6 +166,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/dashboard/offboarding': 'Offboarding · Paz y Salvo',
   '/dashboard/admin/users': 'Administración · Usuarios y Roles',
   '/dashboard/admin/audit-logs': 'Administración · Auditoría',
+  '/dashboard/admin/health': 'Sistema · Salud de la Plataforma',
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {

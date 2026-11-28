@@ -463,6 +463,7 @@ export const apiClient = {
     const qs = query.toString();
     return apiFetch<AuditLogRecord[]>(`/admin/audit-logs${qs ? `?${qs}` : ''}`);
   },
+  getPlatformHealth: () => apiFetch<PlatformHealthResponse>('/admin/health'),
   getWorkflows: (params?: { flowType?: string; operationalArea?: string }) => {
     const query = new URLSearchParams();
     if (params?.flowType) query.set('flowType', params.flowType);
@@ -1242,6 +1243,95 @@ export interface ContractListResponse {
   items: ContractItem[];
   employeesWithoutContract: EmployeeWithoutContractSummary[];
   legacyExpirationContracts: ExpirationRecordItem[];
+}
+
+export interface PlatformHealthResponse {
+  overallStatus: 'HEALTHY' | 'DEGRADED' | 'CRITICAL';
+  checkedAt: string;
+  runtime: {
+    nodeEnv: string;
+    isRender: boolean;
+    nodeVersion: string;
+    uptimeSeconds: number;
+    memoryRssMb: number;
+    memoryHeapUsedMb: number;
+    pid: number;
+  };
+  database: {
+    status: 'UP' | 'DOWN';
+    host: string;
+    latencyMs: number;
+    error: string | null;
+  };
+  storage: {
+    status: 'UP' | 'DEGRADED' | 'DOWN';
+    endpointHost: string;
+    isLocalEndpoint: boolean;
+    bucket: string;
+    bucketAccessible: boolean;
+    legacyBuckets: string[];
+    hasCustomCredentials: boolean;
+    availableBuckets: string[];
+    latencyMs: number;
+    message: string;
+  };
+  mail: {
+    status: 'UP' | 'DEGRADED';
+    configured: boolean;
+    smtpConfigured: boolean;
+    smtpHost: string;
+    smtpPort: number;
+    hasSmtpUser: boolean;
+    relayConfigured: boolean;
+    relayHost: string | null;
+    preferRelayFirst: boolean;
+    modeLabel: string;
+  };
+  queue: {
+    status: 'UP' | 'DEGRADED';
+    name: string;
+    connected: boolean;
+    mode: 'BULLMQ_REDIS' | 'DIRECT_FALLBACK';
+    redisHost: string;
+    redisPort: number;
+    latencyMs: number;
+    counts: Record<string, number> | null;
+    message: string;
+  };
+  helpdesk: {
+    status: 'UP' | 'DEGRADED';
+    mode: 'MANAGEENGINE_SDP' | 'INTERNAL_IT_EMAIL' | 'MOCK';
+    externalApiEnabled: boolean;
+    mockEnabled: boolean;
+    serviceDeskUrlConfigured: boolean;
+    itRecipientsCount: number;
+    itRecipients: string[];
+    message: string;
+  };
+  security: {
+    supabaseAuthConfigured: boolean;
+    supabaseAdminConfigured: boolean;
+    supabaseHost: string | null;
+    devAuthBypassEnabled: boolean;
+    corporateEmailDomain: string;
+  };
+  metrics: {
+    employees: number;
+    candidateProcesses: number;
+    workflows: number;
+    activeContracts: number;
+    expirations: number;
+    timeRequests: number;
+    documents: number;
+    users: number;
+    auditLogs: number;
+  };
+  alerts: Array<{
+    severity: 'critical' | 'warning' | 'info';
+    component: 'database' | 'storage' | 'mail' | 'queue' | 'helpdesk' | 'security';
+    title: string;
+    detail: string;
+  }>;
 }
 
 export interface TimeRequestItem {

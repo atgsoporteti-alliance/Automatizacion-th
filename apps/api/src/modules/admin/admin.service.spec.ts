@@ -111,4 +111,105 @@ describe('AdminService.createUser', () => {
       ),
     ).rejects.toThrow(ConflictException);
   });
+
+  it('retorna diagnóstico consolidado de salud de plataforma sin exponer secretos', async () => {
+    const mockDb = {
+      db: {
+        execute: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
+        select: jest.fn().mockReturnValue({
+          from: jest.fn().mockResolvedValue([{ count: 5 }]),
+        }),
+      },
+    } as unknown as DatabaseService;
+
+    const mockConfig = {
+      get: jest.fn((key: string, defaultVal?: string) => {
+        const vals: Record<string, string> = {
+          DATABASE_URL: 'postgresql://user:supersecret@db.supabase.co:5432/postgres',
+          NODE_ENV: 'production',
+          NEXT_PUBLIC_DEV_AUTH_BYPASS: 'false',
+          SUPABASE_URL: 'https://proj.supabase.co',
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
+          SUPABASE_SERVICE_ROLE_KEY: 'service-key',
+          CORPORATE_EMAIL_DOMAIN: 'alliance.com.co',
+        };
+        return vals[key] ?? defaultVal;
+      }),
+    };
+
+    const mockStorage = {
+      checkHealth: jest.fn().mockResolvedValue({
+        status: 'UP',
+        endpointHost: 'proj.storage.supabase.co',
+        isLocalEndpoint: false,
+        bucket: 'alliance',
+        bucketAccessible: true,
+        legacyBuckets: ['alliance-hcm-docs'],
+        hasCustomCredentials: true,
+        availableBuckets: ['alliance', 'alliance-hcm-docs'],
+        latencyMs: 42,
+        message: 'Bucket operativo',
+      }),
+    };
+
+    const mockMail = {
+      getHealthSummary: jest.fn().mockReturnValue({
+        status: 'UP',
+        configured: true,
+        smtpConfigured: true,
+        smtpHost: 'smtp.gmail.com',
+        smtpPort: 465,
+        hasSmtpUser: true,
+        relayConfigured: true,
+        relayHost: 'automatizacion-th-web.vercel.app',
+        preferRelayFirst: true,
+        modeLabel: 'HTTPS Relay prioritario',
+      }),
+    };
+
+    const mockHelpdesk = {
+      getHealthSummary: jest.fn().mockResolvedValue({
+        queue: {
+          status: 'UP',
+          name: 'helpdesk-provisioning',
+          connected: true,
+          mode: 'BULLMQ_REDIS',
+          redisHost: 'localhost',
+          redisPort: 6379,
+          latencyMs: 5,
+          counts: { waiting: 0, active: 0, completed: 2, failed: 0, delayed: 0 },
+          message: 'OK',
+        },
+        helpdesk: {
+          status: 'UP',
+          mode: 'INTERNAL_IT_EMAIL',
+          externalApiEnabled: false,
+          mockEnabled: false,
+          serviceDeskUrlConfigured: false,
+          itRecipientsCount: 1,
+          itRecipients: ['soporte.it@alliance.com'],
+          message: 'OK',
+        },
+      }),
+    };
+
+    const service = new AdminService(
+      mockDb,
+      { record: jest.fn() } as unknown as AuditService,
+      undefined,
+      mockConfig as never,
+      mockStorage as never,
+      mockMail as never,
+      mockHelpdesk as never,
+    );
+
+    const health = await service.getPlatformHealth();
+    expect(health.overallStatus).toBe('HEALTHY');
+    expect(health.database.status).toBe('UP');
+    expect(health.database.host).toBe('db.supabase.co');
+    expect(JSON.stringify(health)).not.toContain('supersecret');
+    expect(JSON.stringify(health)).not.toContain('service-key');
+    expect(health.metrics.employees).toBe(5);
+    expect(health.alerts).toHaveLength(0);
+  });
 });

@@ -11,6 +11,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  ListBucketsCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -36,31 +37,119 @@ export interface UploadedObjectResult {
   fileSize: number;
 }
 
+export interface StorageHealthSummary {
+  status: 'UP' | 'DEGRADED' | 'DOWN';
+  endpointHost: string;
+  isLocalEndpoint: boolean;
+  bucket: string;
+  bucketAccessible: boolean;
+  legacyBuckets: string[];
+  hasCustomCredentials: boolean;
+  availableBuckets: string[];
+  latencyMs: number;
+  message: string;
+}
+
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
   private readonly s3Client: S3Client;
   private readonly bucket: string;
   private readonly endpoint: string;
+  private readonly hasCustomCredentials: boolean;
   private bucketEnsured = false;
 
   constructor(private readonly config: ConfigService) {
     this.endpoint = this.config.get<string>('S3_ENDPOINT', 'http://localhost:9000').trim();
     this.bucket = this.config.get<string>('S3_BUCKET', 'alliance').trim();
+    const accessKey = this.config.get<string>('S3_ACCESS_KEY', 'minioadmin').trim();
+    const secretKey = this.config.get<string>('S3_SECRET_KEY', 'minioadmin123').trim();
+    this.hasCustomCredentials = Boolean(
+      accessKey &&
+        secretKey &&
+        accessKey !== 'minioadmin' &&
+        secretKey !== 'minioadmin123',
+    );
 
     this.s3Client = new S3Client({
       endpoint: this.endpoint,
       region: this.config.get<string>('S3_REGION', 'us-west-2').trim(),
       forcePathStyle: this.config.get<string>('S3_FORCE_PATH_STYLE', 'true').trim() === 'true',
       credentials: {
-        accessKeyId: this.config.get<string>('S3_ACCESS_KEY', 'minioadmin').trim(),
-        secretAccessKey: this.config.get<string>('S3_SECRET_KEY', 'minioadmin123').trim(),
+        accessKeyId: accessKey,
+        secretAccessKey: secretKey,
       },
     });
   }
 
   public getBucketName(): string {
     return this.bucket;
+  }
+
+  public async checkHealth(): Promise<StorageHealthSummary> {
+    const start = Date.now();
+    const isLocalEndpoint =
+      this.endpoint.includes('localhost') || this.endpoint.includes('127.0.0.1');
+    let endpointHost = this.endpoint;
+    try {
+      endpointHost = new URL(this.endpoint).host;
+    } catch {
+      // mantener valor original si no parsea como URL
+    }
+
+    const legacyBuckets = this.getBucketCandidates().filter((b) => b !== this.bucket);
+
+    try {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const probe = Promise.all([
+        this.s3Client.send(new HeadBucketCommand({ Bucket: this.bucket })),
+        this.s3Client.send(new ListBucketsCommand({})).catch(() => ({ Buckets: [] })),
+      ]);
+      const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error('Timeout conectando a S3/Storage (3.5s)')), 3500);
+      });
+
+      const [, listRes] = await Promise.race([probe, timeout]).finally(() => {
+        if (timer) clearTimeout(timer);
+      });
+
+      const availableBuckets = (listRes.Buckets ?? [])
+        .map((b) => b.Name)
+        .filter((n): n is string => Boolean(n));
+
+      const latencyMs = Date.now() - start;
+      const isDegraded = isLocalEndpoint || !this.hasCustomCredentials;
+      return {
+        status: isDegraded ? 'DEGRADED' : 'UP',
+        endpointHost,
+        isLocalEndpoint,
+        bucket: this.bucket,
+        bucketAccessible: true,
+        legacyBuckets,
+        hasCustomCredentials: this.hasCustomCredentials,
+        availableBuckets,
+        latencyMs,
+        message: isDegraded
+          ? `Bucket "${this.bucket}" responde en ${endpointHost}, pero usa endpoint o credenciales locales.`
+          : `Bucket "${this.bucket}" operativo en Supabase Storage (${endpointHost}).`,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        status: 'DOWN',
+        endpointHost,
+        isLocalEndpoint,
+        bucket: this.bucket,
+        bucketAccessible: false,
+        legacyBuckets,
+        hasCustomCredentials: this.hasCustomCredentials,
+        availableBuckets: [],
+        latencyMs: Date.now() - start,
+        message: isLocalEndpoint
+          ? `Sin conexión a S3 en ${endpointHost} (configuración apunta a MinIO local): ${msg}`
+          : `Error accediendo al bucket "${this.bucket}": ${msg}`,
+      };
+    }
   }
 
   validateFile(params: {
