@@ -1,3 +1,5 @@
+import type { PulseQuestionType } from './constants';
+
 /**
  * Calcula la edad exacta en años cumplidos a partir de la fecha de nacimiento.
  */
@@ -397,4 +399,54 @@ export function hasMeetingOverlap(
   const b0 = startB.getTime();
   const b1 = b0 + Math.max(15, durationBMinutes) * 60_000;
   return a0 < b1 && b0 < a1;
+}
+
+export interface PulseQuestionDefinition {
+  id: string;
+  prompt: string;
+  type: PulseQuestionType;
+  required?: boolean;
+  options?: string[];
+}
+
+export interface PulseEnpsSummary {
+  totalRatings: number;
+  promoters: number;
+  passives: number;
+  detractors: number;
+  score: number | null;
+}
+
+/**
+ * Calcula el eNPS corporativo (Promotores 9-10 minus Detractores 0-6 sobre total * 100).
+ */
+export function computeEnpsSummary(scores: number[]): PulseEnpsSummary {
+  const valid = scores.filter((value) => Number.isFinite(value) && value >= 0 && value <= 10);
+  if (valid.length === 0) {
+    return {
+      totalRatings: 0,
+      promoters: 0,
+      passives: 0,
+      detractors: 0,
+      score: null,
+    };
+  }
+
+  let promoters = 0;
+  let passives = 0;
+  let detractors = 0;
+
+  for (const value of valid) {
+    if (value >= 9) promoters += 1;
+    else if (value >= 7) passives += 1;
+    else detractors += 1;
+  }
+
+  return {
+    totalRatings: valid.length,
+    promoters,
+    passives,
+    detractors,
+    score: Math.round(((promoters - detractors) / valid.length) * 100),
+  };
 }

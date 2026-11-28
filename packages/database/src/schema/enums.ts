@@ -184,3 +184,18 @@ export const contractStatusEnum = pgEnum('contract_status', [
   'TERMINATED',
   'DRAFT',
 ]);
+
+export const newsCategoryEnum = pgEnum('news_category', [
+  'GENERAL',
+  'CULTURE',
+  'BENEFITS',
+  'RECOGNITION',
+  'OPERATIONS',
+  'SECURITY',
+]);
+
+export const pulseSurveyStatusEnum = pgEnum('pulse_survey_status', [
+  'DRAFT',
+  'ACTIVE',
+  'CLOSED',
+]);

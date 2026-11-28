@@ -10,7 +10,13 @@ import {
   employeeDocuments,
   employees,
   expirationRecords,
+  newsPostComments,
+  newsPostReactions,
+  newsPosts,
   onboardingOffboardingWorkflows,
+  pulseSurveyParticipations,
+  pulseSurveyResponses,
+  pulseSurveys,
   timeRequests,
 } from './tables';
 
@@ -123,5 +129,46 @@ export const employeeContractsRelations = relations(employeeContracts, ({ one })
   linkedExpiration: one(expirationRecords, {
     fields: [employeeContracts.linkedExpirationId],
     references: [expirationRecords.id],
+  }),
+}));
+
+export const newsPostsRelations = relations(newsPosts, ({ many }) => ({
+  reactions: many(newsPostReactions),
+  comments: many(newsPostComments),
+}));
+
+export const newsPostReactionsRelations = relations(newsPostReactions, ({ one }) => ({
+  post: one(newsPosts, {
+    fields: [newsPostReactions.postId],
+    references: [newsPosts.id],
+  }),
+}));
+
+export const newsPostCommentsRelations = relations(newsPostComments, ({ one }) => ({
+  post: one(newsPosts, {
+    fields: [newsPostComments.postId],
+    references: [newsPosts.id],
+  }),
+}));
+
+export const pulseSurveysRelations = relations(pulseSurveys, ({ many }) => ({
+  participations: many(pulseSurveyParticipations),
+  responses: many(pulseSurveyResponses),
+}));
+
+export const pulseSurveyParticipationsRelations = relations(
+  pulseSurveyParticipations,
+  ({ one }) => ({
+    survey: one(pulseSurveys, {
+      fields: [pulseSurveyParticipations.surveyId],
+      references: [pulseSurveys.id],
+    }),
+  }),
+);
+
+export const pulseSurveyResponsesRelations = relations(pulseSurveyResponses, ({ one }) => ({
+  survey: one(pulseSurveys, {
+    fields: [pulseSurveyResponses.surveyId],
+    references: [pulseSurveys.id],
   }),
 }));

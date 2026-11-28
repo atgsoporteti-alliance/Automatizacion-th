@@ -488,3 +488,52 @@ export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
 };
 
 export const CONTRACT_MODALITY_OPTIONS = ['Presencial', 'Híbrido', 'Remoto'] as const;
+
+export const NEWS_CATEGORIES = [
+  'GENERAL',
+  'CULTURE',
+  'BENEFITS',
+  'RECOGNITION',
+  'OPERATIONS',
+  'SECURITY',
+] as const;
+export type NewsCategory = (typeof NEWS_CATEGORIES)[number];
+
+export const NEWS_CATEGORY_LABELS: Record<NewsCategory, string> = {
+  GENERAL: 'Comunicado General',
+  CULTURE: 'Cultura y Bienestar',
+  BENEFITS: 'Beneficios y Convenios',
+  RECOGNITION: 'Reconocimientos',
+  OPERATIONS: 'Operación y Turnos',
+  SECURITY: 'Seguridad y Cumplimiento',
+};
+
+export const PULSE_SURVEY_STATUSES = ['DRAFT', 'ACTIVE', 'CLOSED'] as const;
+export type PulseSurveyStatus = (typeof PULSE_SURVEY_STATUSES)[number];
+
+export const PULSE_SURVEY_STATUS_LABELS: Record<PulseSurveyStatus, string> = {
+  DRAFT: 'Borrador',
+  ACTIVE: 'Activa',
+  CLOSED: 'Cerrada',
+};
+
+export const PULSE_QUESTION_TYPES = [
+  'SCALE_5',
+  'ENPS_10',
+  'SINGLE_CHOICE',
+  'OPEN_TEXT',
+] as const;
+export type PulseQuestionType = (typeof PULSE_QUESTION_TYPES)[number];
+
+export const PULSE_QUESTION_TYPE_LABELS: Record<PulseQuestionType, string> = {
+  SCALE_5: 'Escala 1 a 5 (Clima)',
+  ENPS_10: 'eNPS 0 a 10 (Recomendación)',
+  SINGLE_CHOICE: 'Selección Única',
+  OPEN_TEXT: 'Comentario Abierto Anónimo',
+};
+
+/**
+ * Umbral mínimo de respuestas (k-anonimidad) requerido antes de exponer
+ * comentarios abiertos o desgloses detallados por área operativa.
+ */
+export const PULSE_MIN_RESPONSES_FOR_BREAKDOWN = 3;

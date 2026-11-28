@@ -30,15 +30,23 @@ export class AuditInterceptor implements NestInterceptor {
       return next.handle();
     }
 
+    const cleanPath = request.url.split('?')[0];
+
+    // Las respuestas a encuestas de pulso son estrictamente anónimas:
+    // no registrar actorId, email ni IP en audit_logs para evitar correlación temporal.
+    if (/^\/api\/communications\/surveys\/[^/]+\/respond$/.test(cleanPath)) {
+      return next.handle();
+    }
+
     const actorId = request.user?.id ?? request.user?.email ?? 'public-or-webhook';
-    const entity = request.url.split('?')[0].split('/')[2] ?? 'api';
+    const entity = cleanPath.split('/')[2] ?? 'api';
     const entityId = request.params?.id ?? request.params?.clearanceId ?? 'batch';
 
     return next.handle().pipe(
       tap(() => {
         void this.auditService.record({
           actorId,
-          action: `HTTP_${method}_${request.url.split('?')[0]}`,
+          action: `HTTP_${method}_${cleanPath}`,
           entity,
           entityId,
           newValues: {

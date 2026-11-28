@@ -83,6 +83,9 @@ export type Permission =
   | 'clearance:approve_finance'
   | 'clearance:approve_fixed_assets'
   | 'clearance:approve_manager'
+  | 'communications:read'
+  | 'communications:manage'
+  | 'pulse:respond'
   | 'admin:manage_users'
   | 'admin:view_audit_logs'
   | 'admin:view_health';
@@ -103,6 +106,9 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'expirations:read_area',
     'expirations:manage_all',
     'offboarding:initiate_standard',
+    'communications:read',
+    'communications:manage',
+    'pulse:respond',
   ],
   TH_ADMIN: [
     'candidate_portal:manage',
@@ -124,6 +130,9 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'clearance:approve_finance',
     'clearance:approve_fixed_assets',
     'clearance:approve_manager',
+    'communications:read',
+    'communications:manage',
+    'pulse:respond',
     'admin:view_audit_logs',
     'admin:view_health',
   ],
@@ -135,6 +144,8 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'time_requests:review_leader',
     'expirations:read_area',
     'clearance:approve_manager',
+    'communications:read',
+    'pulse:respond',
   ],
   IT_SUPPORT: [
     'employees:read_technical',
@@ -142,11 +153,15 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'expirations:read_area',
     'expirations:manage_license',
     'clearance:approve_it',
+    'communications:read',
+    'pulse:respond',
     'admin:view_health',
   ],
   CLEARANCE_APPROVER: [
     'clearance:approve_finance',
     'clearance:approve_fixed_assets',
+    'communications:read',
+    'pulse:respond',
   ],
   SUPER_ADMIN: [
     'candidate_portal:manage',
@@ -172,6 +187,9 @@ export const ROLE_PERMISSIONS: Record<SystemRole, readonly Permission[]> = {
     'clearance:approve_finance',
     'clearance:approve_fixed_assets',
     'clearance:approve_manager',
+    'communications:read',
+    'communications:manage',
+    'pulse:respond',
     'admin:manage_users',
     'admin:view_audit_logs',
     'admin:view_health',

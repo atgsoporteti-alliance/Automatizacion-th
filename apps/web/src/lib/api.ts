@@ -14,7 +14,11 @@ import {
   ExpirationStatus,
   InternalRole,
   MeetingStatus,
+  NewsCategory,
   OperationalArea,
+  PulseEnpsSummary,
+  PulseQuestionType,
+  PulseSurveyStatus,
   SystemRole,
   TimeRequestCategory,
   TimeRequestStatus,
@@ -1160,6 +1164,95 @@ export const apiClient = {
 
     return response.json();
   },
+
+  // ── Módulo Comunicaciones: Muro de Noticias y Encuestas de Pulso ──
+  getCommunicationsOverview: (params?: {
+    category?: NewsCategory | '';
+    search?: string;
+    surveyStatus?: PulseSurveyStatus | '';
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.category) query.set('category', params.category);
+    if (params?.search) query.set('search', params.search);
+    if (params?.surveyStatus) query.set('surveyStatus', params.surveyStatus);
+    const qs = query.toString();
+    return apiFetch<CommunicationsOverviewResponse>(
+      `/communications/overview${qs ? `?${qs}` : ''}`,
+    );
+  },
+  createNewsPost: (payload: {
+    title: string;
+    summary?: string;
+    content: string;
+    category: NewsCategory;
+    targetArea?: UserOperationalArea;
+    isPinned?: boolean;
+    isPublished?: boolean;
+  }) =>
+    apiFetch<NewsPostItem>('/communications/news', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateNewsPost: (
+    id: string,
+    payload: {
+      title?: string;
+      summary?: string;
+      content?: string;
+      category?: NewsCategory;
+      targetArea?: UserOperationalArea;
+      isPinned?: boolean;
+      isPublished?: boolean;
+    },
+  ) =>
+    apiFetch<NewsPostItem>(`/communications/news/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  deleteNewsPost: (id: string) =>
+    apiFetch<{ deleted: boolean; id: string }>(`/communications/news/${id}`, {
+      method: 'DELETE',
+    }),
+  toggleNewsReaction: (id: string) =>
+    apiFetch<{ postId: string; reacted: boolean }>(`/communications/news/${id}/react`, {
+      method: 'POST',
+    }),
+  addNewsComment: (id: string, body: string) =>
+    apiFetch<NewsCommentItem>(`/communications/news/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
+  createPulseSurvey: (payload: {
+    title: string;
+    description?: string;
+    status?: PulseSurveyStatus;
+    targetArea?: UserOperationalArea;
+    closesAt?: string;
+    questions: Array<{
+      id: string;
+      prompt: string;
+      type: PulseQuestionType;
+      required?: boolean;
+      options?: string[];
+    }>;
+  }) =>
+    apiFetch<PulseSurveyItem>('/communications/surveys', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updatePulseSurveyStatus: (id: string, status: PulseSurveyStatus) =>
+    apiFetch<PulseSurveyItem>(`/communications/surveys/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+  submitPulseResponse: (
+    id: string,
+    answers: Record<string, number | string>,
+  ) =>
+    apiFetch<SubmitPulseResponseResult>(`/communications/surveys/${id}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    }),
 };
 
 export interface ContractItem {
@@ -1488,4 +1581,115 @@ export interface ExpirationScanResult {
     sent: boolean;
     reason?: string;
   }>;
+}
+
+export interface NewsCommentItem {
+  id: string;
+  authorName: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface NewsPostItem {
+  id: string;
+  title: string;
+  summary: string | null;
+  content: string;
+  category: NewsCategory;
+  categoryLabel: string;
+  targetArea: UserOperationalArea;
+  targetAreaLabel: string;
+  isPinned: boolean;
+  isPublished: boolean;
+  authorName: string;
+  authorRole: string;
+  publishedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  reactionsCount: number;
+  hasUserReacted: boolean;
+  commentsCount: number;
+  comments: NewsCommentItem[];
+}
+
+export interface PulseDistributionBucket {
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+export interface PulseQuestionAnalytics {
+  id: string;
+  prompt: string;
+  type: PulseQuestionType;
+  required: boolean;
+  options: string[];
+  answeredCount: number;
+  average: number | null;
+  distribution: PulseDistributionBucket[];
+  enps: PulseEnpsSummary | null;
+  openTextAnswers: string[];
+}
+
+export interface PulseAreaBreakdownItem {
+  area: string;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+export interface PulseSurveyItem {
+  id: string;
+  title: string;
+  description: string | null;
+  status: PulseSurveyStatus;
+  statusLabel: string;
+  targetArea: UserOperationalArea;
+  targetAreaLabel: string;
+  isAnonymous: boolean;
+  closesAt: string | null;
+  isExpired: boolean;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  totalResponses: number;
+  hasResponded: boolean;
+  canRespond: boolean;
+  privacyThreshold: number;
+  isKAnonymityMet: boolean;
+  privacyNotice: string | null;
+  overallEnps: PulseEnpsSummary | null;
+  areaBreakdown: PulseAreaBreakdownItem[];
+  questionSummaries: PulseQuestionAnalytics[];
+}
+
+export interface CommunicationsOverviewResponse {
+  permissions: {
+    canManageCommunications: boolean;
+    canRespondPulse: boolean;
+  };
+  newsKpis: {
+    totalPosts: number;
+    pinnedCount: number;
+    draftCount: number;
+    totalReactions: number;
+    totalComments: number;
+  };
+  posts: NewsPostItem[];
+  surveyKpis: {
+    totalSurveys: number;
+    activeCount: number;
+    respondedByMeCount: number;
+    pendingForMeCount: number;
+    totalResponses: number;
+    latestEnpsScore: number | null;
+  };
+  surveys: PulseSurveyItem[];
+}
+
+export interface SubmitPulseResponseResult {
+  submitted: boolean;
+  surveyId: string;
+  anonymousReceipt: boolean;
+  privacyGuarantee: string;
 }

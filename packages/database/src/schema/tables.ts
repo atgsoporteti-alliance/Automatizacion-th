@@ -26,7 +26,9 @@ import {
   expirationStatusEnum,
   maritalStatusEnum,
   meetingStatusEnum,
+  newsCategoryEnum,
   operationalAreaEnum,
+  pulseSurveyStatusEnum,
   shirtSizeEnum,
   timeRequestCategoryEnum,
   timeRequestStatusEnum,
@@ -544,3 +546,154 @@ export const employeeContracts = pgTable(
 
 export type EmployeeContract = typeof employeeContracts.$inferSelect;
 export type NewEmployeeContract = typeof employeeContracts.$inferInsert;
+
+/**
+ * 15. news_posts — Muro de Noticias Corporativas y Anuncios Internos
+ */
+export const newsPosts = pgTable(
+  'news_posts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    title: varchar('title', { length: 180 }).notNull(),
+    summary: varchar('summary', { length: 320 }),
+    content: text('content').notNull(),
+    category: newsCategoryEnum('category').notNull().default('GENERAL'),
+    targetArea: userOperationalAreaEnum('target_area').notNull().default('ALL'),
+    isPinned: boolean('is_pinned').notNull().default(false),
+    isPublished: boolean('is_published').notNull().default(true),
+    authorName: varchar('author_name', { length: 150 }).notNull(),
+    authorEmail: varchar('author_email', { length: 150 }).notNull(),
+    authorRole: varchar('author_role', { length: 60 }).notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('news_posts_published_idx').on(table.isPublished),
+    index('news_posts_category_idx').on(table.category),
+    index('news_posts_area_idx').on(table.targetArea),
+    index('news_posts_pinned_idx').on(table.isPinned),
+  ],
+);
+
+export type NewsPost = typeof newsPosts.$inferSelect;
+export type NewNewsPost = typeof newsPosts.$inferInsert;
+
+/**
+ * 16. news_post_reactions — Reacciones (Me gusta / Apoyo) en Noticias
+ */
+export const newsPostReactions = pgTable(
+  'news_post_reactions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    postId: uuid('post_id')
+      .notNull()
+      .references(() => newsPosts.id, { onDelete: 'cascade' }),
+    userEmail: varchar('user_email', { length: 150 }).notNull(),
+    reaction: varchar('reaction', { length: 30 }).notNull().default('LIKE'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('news_post_reactions_post_user_uidx').on(table.postId, table.userEmail),
+  ],
+);
+
+export type NewsPostReaction = typeof newsPostReactions.$inferSelect;
+
+/**
+ * 17. news_post_comments — Comentarios de Colaboradores en Comunicados
+ */
+export const newsPostComments = pgTable(
+  'news_post_comments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    postId: uuid('post_id')
+      .notNull()
+      .references(() => newsPosts.id, { onDelete: 'cascade' }),
+    authorName: varchar('author_name', { length: 150 }).notNull(),
+    authorEmail: varchar('author_email', { length: 150 }).notNull(),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index('news_post_comments_post_idx').on(table.postId)],
+);
+
+export type NewsPostComment = typeof newsPostComments.$inferSelect;
+
+/**
+ * 18. pulse_surveys — Encuestas de Pulso y Clima Organizacional
+ */
+export const pulseSurveys = pgTable(
+  'pulse_surveys',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    title: varchar('title', { length: 180 }).notNull(),
+    description: text('description'),
+    status: pulseSurveyStatusEnum('status').notNull().default('ACTIVE'),
+    targetArea: userOperationalAreaEnum('target_area').notNull().default('ALL'),
+    questions: jsonb('questions')
+      .$type<
+        Array<{
+          id: string;
+          prompt: string;
+          type: 'SCALE_5' | 'ENPS_10' | 'SINGLE_CHOICE' | 'OPEN_TEXT';
+          required?: boolean;
+          options?: string[];
+        }>
+      >()
+      .notNull(),
+    isAnonymous: boolean('is_anonymous').notNull().default(true),
+    closesAt: date('closes_at'),
+    createdByName: varchar('created_by_name', { length: 150 }).notNull(),
+    createdByEmail: varchar('created_by_email', { length: 150 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('pulse_surveys_status_idx').on(table.status),
+    index('pulse_surveys_area_idx').on(table.targetArea),
+  ],
+);
+
+export type PulseSurvey = typeof pulseSurveys.$inferSelect;
+export type NewPulseSurvey = typeof pulseSurveys.$inferInsert;
+
+/**
+ * 19. pulse_survey_participations — Control anti-duplicado por hash HMAC sin almacenar respuestas
+ */
+export const pulseSurveyParticipations = pgTable(
+  'pulse_survey_participations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    surveyId: uuid('survey_id')
+      .notNull()
+      .references(() => pulseSurveys.id, { onDelete: 'cascade' }),
+    participantHash: varchar('participant_hash', { length: 128 }).notNull(),
+    submittedDay: date('submitted_day').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('pulse_survey_participations_uidx').on(table.surveyId, table.participantHash),
+  ],
+);
+
+/**
+ * 20. pulse_survey_responses — Respuestas 100% desvinculadas de identidad del votante
+ */
+export const pulseSurveyResponses = pgTable(
+  'pulse_survey_responses',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    surveyId: uuid('survey_id')
+      .notNull()
+      .references(() => pulseSurveys.id, { onDelete: 'cascade' }),
+    operationalAreaSnapshot: operationalAreaEnum('operational_area_snapshot'),
+    answers: jsonb('answers').$type<Record<string, number | string>>().notNull(),
+    submittedDay: date('submitted_day').defaultNow().notNull(),
+  },
+  (table) => [
+    index('pulse_survey_responses_survey_idx').on(table.surveyId),
+    index('pulse_survey_responses_area_idx').on(table.operationalAreaSnapshot),
+  ],
+);
+
+export type PulseSurveyResponse = typeof pulseSurveyResponses.$inferSelect;

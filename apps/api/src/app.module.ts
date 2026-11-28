@@ -22,6 +22,7 @@ import { CandidatePortalModule } from './modules/candidate-portal/candidate-port
 import { ExpirationsModule } from './modules/expirations/expirations.module';
 import { TimeRequestsModule } from './modules/time-requests/time-requests.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
+import { CommunicationsModule } from './modules/communications/communications.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { ContractsModule } from './modules/contracts/contracts.module';
     ExpirationsModule,
     TimeRequestsModule,
     ContractsModule,
+    CommunicationsModule,
   ],
   providers: [
     {
